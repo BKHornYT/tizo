@@ -42,8 +42,9 @@ file — and a week later gets a bugfix without doing anything.
   the update system (app + engine channels, version in the toolbar), a first-run
   terms gate, GitHub-backed suggestions and site reports, opt-in usage counting,
   and a custom app icon
-- **In progress:** Phase 9 — v0.0.1 is published; auto-update not yet proven
-  against a second version
+- **In progress:** Phase 5 — audio extraction and subtitles. Phases 0–4 and 8–9
+  are done; v0.0.4 is live and auto-update is proven working against a real
+  release
 - **Known broken / not started:** no audio extraction or subtitles (Phase 5), no
   clipboard *watcher* or history or tray (Phase 6), no playlist monitoring (6.5),
   no optional addon gates (7), no icons or built installers (8), no CI release
@@ -142,6 +143,12 @@ deliberately differ from the reference app.
 
 Newest first.
 
+- **2026-08-20 — Bot walls are handled by retry, not by default.** A Cloudflare
+  403 is detected in stderr and the probe runs once more with
+  `--extractor-args generic:impersonate`; the finding is then carried to the
+  download so the same route is used. *Why retry:* impersonation is slower and
+  some sites behave worse under it, so paying that cost on every request would be
+  wrong — and yt-dlp names this exact flag in its own error message.
 - **2026-08-20 — Page scanning is a fallback, never a first choice.** When yt-dlp
   has no extractor, the app fetches the page and looks for `<video>`, `<source>`,
   `og:video`, `contentUrl` and inline media URLs — what a person does with the
@@ -260,6 +267,12 @@ Newest first.
 - **Screen capture of the window comes out black under GPU compositing.** Launch
   with `--disable-gpu` when a screenshot is needed, or the image is solid black
   with no error.
+- **"Site not supported" usually means something else.** Two separate causes have
+  already produced that message: a Cloudflare 403 blocking both yt-dlp *and* the
+  page scan, and the codec-state bug below. Before touching the scraper, run the
+  managed binary with the app's exact args and read stderr — the CLI on PATH can
+  succeed where the app fails, because bot walls are inconsistent about who they
+  challenge.
 - **A codec field has three states, not two.** A named codec, `'none'` meaning the
   stream is genuinely absent, and `null`/absent meaning yt-dlp did not look. The
   Generic extractor returns the third for a plain file it finds on a page — a real,

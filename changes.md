@@ -11,6 +11,36 @@ Newest first. One entry per change, using this format:
 
 ---
 
+## 2026-08-20 — v0.0.4: get past Cloudflare bot walls
+**What:** The reported site turned out not to be a shaping problem at all. yt-dlp
+was being 403'd by a Cloudflare anti-bot challenge, and the page scan was refused
+for the same reason — it sends a browser user-agent but cannot fake a TLS
+fingerprint. Both failed, so the app honestly reported "no video found". The probe
+now inspects stderr, and when the failure looks like a bot wall it retries once with
+`--extractor-args generic:impersonate`. The finding is carried through `MediaInfo` →
+`QueueItem` → the download request, so the download takes the same route the probe
+succeeded on. Added a readable dashboard to the stats worker.
+**Why:** Reported directly. Also: v0.0.3 shipped a real fix for a *different* cause
+of the same symptom, so both were needed.
+**Files:** src/main/engine/{formats,probe,args,download,scrape}.ts,
+src/main/queue/index.ts, src/shared/types.ts, scripts/test-args.ts,
+server/worker.js, package.json, CLAUDE.md, task.md
+
+**Verified end to end against the reported URL**: plain attempt failed, detected as
+a bot wall, retry succeeded, one downloadable option produced. Three new assertions
+cover the flag reaching the command line and a registry target still winning over
+the generic form.
+
+**Why retry and not default:** impersonation is slower and some sites behave worse
+under it, so it is only worth paying for after a refusal. yt-dlp names this exact
+flag in its own error message, which is the strongest possible hint that it is the
+intended fix rather than a workaround.
+
+**Lesson recorded in Gotchas:** the CLI on PATH succeeded where the app failed,
+because bot walls are inconsistent about who they challenge. Reproduce with the
+*managed* binary and the app's exact args before concluding anything about a
+"not supported" report.
+
 ## 2026-08-20 — v0.0.3: fix sites that expose a plain mp4
 **What:** A reported site returned a perfectly good mp4 that the app refused to
 download. The page scan was not at fault and never even ran — yt-dlp's Generic

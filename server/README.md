@@ -65,12 +65,22 @@ Settings toggle explains that nothing can be sent, and no request is ever made.
 
 ## Reading the numbers
 
+Open the Worker URL in a browser and you get a dashboard: installations, total
+downloads, and the per-site table. It is public on purpose — data collected about
+users should not be private to whoever collects it.
+
 `GET` the base URL for the totals:
 
+For the raw JSON, request it explicitly:
+
 ```bash
-curl https://tizo-stats.<subdomain>.workers.dev
+curl -H 'accept: application/json' https://tizo-stats.<subdomain>.workers.dev
 # { "installs": 412, "downloads": 9377, "sites": [ { "domain": "youtube.com", "downloads": 6120 }, … ] }
 ```
+
+**Nothing is collected until this is deployed** and `TIZO_STATS_ENDPOINT` is set as
+a repository variable. Until then the client short-circuits and never makes a
+request — the Settings toggle says as much.
 
 It is public on purpose — data collected about users should not be private to
 the collector.

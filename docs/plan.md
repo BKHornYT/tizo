@@ -25,7 +25,9 @@ tizo/
 │   ├─ engine/
 │   │   ├─ args.ts        pure yt-dlp argument builder — no electron, so testable
 │   │   ├─ binaries.ts    resolve managed yt-dlp/ffmpeg (PATH fallback in dev only)
-│   │   ├─ probe.ts       -J metadata, format shaping, playlist detection
+│   │   ├─ formats.ts     pure format shaping — no electron, so testable
+│   │   ├─ probe.ts       -J metadata, playlist detection, bot-wall retry
+│   │   ├─ scrape.ts      page scanner — last resort when no extractor matches
 │   │   ├─ download.ts    spawn, JSON progress parsing, tree-kill cancel
 │   │   └─ errors.ts      stderr -> 12 typed error codes
 │   ├─ queue/             item state, probing, concurrency pump
@@ -190,13 +192,13 @@ Each phase ends in something runnable.
 | 1 | Download engine | ✅ | Paste a URL, file lands on disk with live progress |
 | 2 | Component manager + setup | ✅ | Fresh install downloads Essentials, verifies, resumes after a killed connection, and refuses to proceed without them |
 | 3 | Core GUI | ✅ | Format picker, save location, settings that reach the command line |
-| 4 | Queue + playlists | ◑ | Batch, concurrency, drag-drop, playlist expansion. Sortable columns outstanding |
-| 5 | Audio + subtitles | ☐ | MP3/M4A with metadata + thumbnail, subtitle download/embed |
+| 4 | Queue + playlists | ✅ | Batch, concurrency, drag-drop, playlist expansion, sorting |
+| 5 | Audio + subtitles | ☐ ← next | MP3/M4A with metadata + thumbnail, subtitle download/embed |
 | 6 | Clipboard + history | ☐ | Clipboard watcher, searchable history, tray on close |
 | 6.5 | Playlist monitoring | ☐ | Watch a playlist/channel; notify by default, auto-download opt-in |
 | 7 | Optional addons | ☐ | Registry-driven capability + domain gates on Phase 2's manager |
-| 8 | Build targets | ◑ | All three build (99 MB installer, 99 MB portable, 139 MB zip). None yet run from a packaged install |
-| 9 | Release pipeline | ☐ | GitHub Actions builds and publishes on tag; auto-update verified live |
+| 8 | Build targets | ✅ | Installer, portable and zip all build and run |
+| 9 | Release pipeline | ✅ | Tag → CI → release. Auto-update **proven** against a real release |
 
 Phase 9 is the real proof: install v1.0.0, push v1.0.1, watch it update itself.
 
@@ -217,6 +219,21 @@ machines* and *which sites are popular*; it cannot answer *what does this machin
 download*. Adding the install id to a site row, or turning on Cloudflare Logpush,
 destroys that property — do neither. Full detail in
 [../server/README.md](../server/README.md).
+
+## When a site "does not work"
+
+Three distinct causes produce the same symptom, and they are fixed in different
+places. Diagnose before touching code — reproduce with the **managed** binary
+(`%APPDATA%/tizo/bin/yt-dlp.exe`) using the app's exact args, and read stderr.
+
+| Cause | Looks like | Fix |
+|---|---|---|
+| Bot wall (Cloudflare) | `HTTP Error 403`, `anti-bot`, `generic:impersonate` | Probe retries with impersonation, carried to the download |
+| No extractor | `Unsupported URL` | Page scan finds the file, or a registry plugin |
+| Extractor worked, shaping dropped it | Row appears with no quality options | `formats.ts` — see the three-state codec rule |
+
+The CLI on PATH can succeed where the app fails: bot walls are inconsistent
+about who they challenge, and a stale PATH copy is a different build entirely.
 
 ## Suggestions and site reports
 

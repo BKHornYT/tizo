@@ -50,13 +50,20 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
 - [x] Only after an extractor fails, and only for UNSUPPORTED_SITE / UNKNOWN
 - [x] Clear message when both fail, with the report button beside it
 
-### Generic-extractor fix ✅
+### Bot-wall (Cloudflare) fix ✅ — v0.0.4
+- [x] Detect a 403 / anti-bot challenge in stderr
+- [x] Retry the probe once with `--extractor-args generic:impersonate`
+- [x] Carry the finding to the download so the same route is used
+- [x] A registry `impersonate` target still wins over the generic flag
+- [x] Verified end to end against the reported URL: blocked → downloadable
+
+### Generic-extractor fix ✅ — v0.0.3
 - [x] Codec `null` (unknown) no longer treated as `'none'` (absent)
 - [x] "Original quality" row when a site offers one file with no resolution
 - [x] Pure `engine/formats.ts` split out so shaping is testable
 - [x] `npm run test:formats` — 17 assertions across generic, YouTube and HLS shapes
 
-### Phase 5 — Audio + subtitles
+### Phase 5 — Audio + subtitles  ← NEXT
 - [ ] MP3/M4A extraction w/ bitrate picker, thumbnail + metadata embed
 - [ ] Subtitle language picker, download and/or embed
 
@@ -92,15 +99,26 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
 - [x] v0.0.1 published — setup, portable, zip and `latest.yml` all live
 - [x] `releaseType: release` set so future tags skip the draft state
 - [x] v0.0.2 published directly from CI — `releaseType: release` confirmed working
-- [ ] **End-to-end proof still owed:** install `tizo-0.0.1-setup.exe`, launch it,
-      and confirm it finds 0.0.2, downloads it, and shows the restart banner.
-      Both versions are live, so this is testable right now — and much harder to
-      test convincingly once 0.0.1 is old.
+- [x] **Auto-update proven end to end** — user installed 0.0.1 and it updated
+      itself. The whole chain works: tag → CI → release → banner → restart.
 - [ ] README with install instructions + SmartScreen note + legal disclaimer
 
 ## Blocked
 
 _Nothing blocked._
+
+## Where things stand (2026-08-20)
+
+Released through **v0.0.4**. Phases 0–4 and 8–9 are done; Phase 5 is next.
+
+The app works end to end: terms → Essentials download → paste a link → queue →
+download, with auto-update proven against a real release. Not yet built: audio
+extraction, subtitles, clipboard watching, history, tray, playlist monitoring,
+and the optional addon gates.
+
+**The stats endpoint is written but not deployed.** Nothing is collected until
+`server/` is deployed and `TIZO_STATS_ENDPOINT` is set as a repo variable — see
+[server/README.md](server/README.md).
 
 ## Open questions
 
