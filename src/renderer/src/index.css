@@ -1,0 +1,28 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-ink-950: #0b0d12;
+  --color-ink-900: #11141c;
+  --color-ink-800: #1a1f2b;
+  --color-ink-700: #262d3d;
+  --color-accent-400: #6ea8fe;
+  --color-accent-500: #3b82f6;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-ink-950);
+  color: #e6e9ef;
+  font-family:
+    'Segoe UI Variable Display', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  /* The whole app is a fixed-size shell; only inner panes scroll. */
+  overflow: hidden;
+  user-select: none;
+}
