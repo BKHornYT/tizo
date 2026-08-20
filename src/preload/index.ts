@@ -53,6 +53,9 @@ const api = {
     cancel: (id: string): Promise<void> => ipcRenderer.invoke('queue:cancel', id),
     remove: (id: string): Promise<void> => ipcRenderer.invoke('queue:remove', id),
     clearFinished: (): Promise<void> => ipcRenderer.invoke('queue:clearFinished'),
+    /** Replaces a playlist row with one item per chosen video. */
+    expand: (id: string, urls: string[]): Promise<void> =>
+      ipcRenderer.invoke('queue:expand', id, urls),
     setFormat: (id: string, formatId: string): Promise<void> =>
       ipcRenderer.invoke('queue:setFormat', id, formatId),
     onUpdate: (handler: (items: QueueItem[]) => void): (() => void) => {

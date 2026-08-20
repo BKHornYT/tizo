@@ -163,8 +163,24 @@ export interface Settings {
 
 // --- Download queue --------------------------------------------------------
 
+export interface PlaylistEntry {
+  id: string
+  url: string
+  title: string
+  duration: number | null
+}
+
+export interface PlaylistInfo {
+  url: string
+  title: string
+  /** True total, which can exceed `entries.length` when the fetch was capped. */
+  count: number
+  entries: PlaylistEntry[]
+}
+
 export type ItemState =
   | 'probing'   // fetching metadata
+  | 'playlist'  // a playlist awaiting the user's selection
   | 'ready'     // has formats, waiting for the user
   | 'queued'    // user pressed go; waiting on a concurrency slot
   | 'downloading'
@@ -198,4 +214,7 @@ export interface QueueItem {
 
   outputPath: string | null
   error: EngineError | null
+
+  /** Present only while state is 'playlist'. */
+  playlist: PlaylistInfo | null
 }

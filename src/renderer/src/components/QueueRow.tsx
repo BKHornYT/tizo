@@ -6,10 +6,12 @@ const ACTIVE: QueueItem['state'][] = ['downloading', 'processing']
 
 export default function QueueRow({
   item,
-  hasFfmpeg
+  hasFfmpeg,
+  onChoose
 }: {
   item: QueueItem
   hasFfmpeg: boolean
+  onChoose: (item: QueueItem) => void
 }): React.JSX.Element {
   const active = ACTIVE.includes(item.state)
   const pct = item.percent ?? 0
@@ -38,6 +40,11 @@ export default function QueueRow({
           </p>
           <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-white/40">
             <StateLabel item={item} />
+            {item.playlist && (
+              <span>
+                · {strings.queue.playlistCount(item.playlist.entries.length, item.playlist.count)}
+              </span>
+            )}
             {item.uploader && <span className="truncate">· {item.uploader}</span>}
             {item.duration !== null && <span>· {duration(item.duration)}</span>}
           </p>
@@ -46,9 +53,10 @@ export default function QueueRow({
           )}
         </div>
 
-        {item.formats.length > 0 && !active && item.state !== 'done' && (
-          <FormatSelect item={item} hasFfmpeg={hasFfmpeg} />
-        )}
+        {item.state !== 'playlist' &&
+          item.formats.length > 0 &&
+          !active &&
+          item.state !== 'done' && <FormatSelect item={item} hasFfmpeg={hasFfmpeg} />}
 
         {active && (
           <div className="shrink-0 text-right font-mono text-xs text-white/50">
@@ -59,7 +67,7 @@ export default function QueueRow({
           </div>
         )}
 
-        <Actions item={item} blocked={blocked} />
+        <Actions item={item} blocked={blocked} onChoose={onChoose} />
       </div>
     </li>
   )
@@ -144,11 +152,33 @@ function FormatSelect({
   )
 }
 
-function Actions({ item, blocked }: { item: QueueItem; blocked: boolean }): React.JSX.Element {
+function Actions({
+  item,
+  blocked,
+  onChoose
+}: {
+  item: QueueItem
+  blocked: boolean
+  onChoose: (item: QueueItem) => void
+}): React.JSX.Element {
   const q = window.tizo.queue
 
   return (
     <div className="flex shrink-0 items-center gap-1">
+      {item.state === 'playlist' && item.playlist && (
+        <>
+          <Action onClick={() => onChoose(item)}>{strings.queue.choose}</Action>
+          <Action
+            primary
+            onClick={() =>
+              void q.expand(item.id, (item.playlist?.entries ?? []).map((e) => e.url))
+            }
+          >
+            {strings.queue.addAll}
+          </Action>
+        </>
+      )}
+
       {item.state === 'ready' && (
         <Action
           onClick={() => void q.start(item.id)}

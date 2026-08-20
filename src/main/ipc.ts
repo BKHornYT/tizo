@@ -91,6 +91,12 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
     if (typeof id === 'string') queue.remove(id)
   })
 
+  ipcMain.handle('queue:expand', async (_e, id: unknown, urls: unknown) => {
+    if (typeof id !== 'string' || !Array.isArray(urls)) return
+    const ffmpeg = await resolveFfmpeg()
+    queue.expandPlaylist(id, urls.filter((u): u is string => typeof u === 'string'), ffmpeg.found)
+  })
+
   ipcMain.handle('queue:setFormat', (_e, id: unknown, formatId: unknown) => {
     if (typeof id === 'string' && typeof formatId === 'string') queue.setFormat(id, formatId)
   })

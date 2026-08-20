@@ -39,6 +39,7 @@ export const strings = {
     activeCount: (n: number) => `${n} downloading`,
     states: {
       probing: 'Reading…',
+      playlist: 'Playlist',
       ready: 'Ready',
       queued: 'Queued',
       downloading: 'Downloading',
@@ -53,7 +54,18 @@ export const strings = {
     remove: 'Remove',
     reveal: 'Show file',
     allFormatsGroup: 'All formats',
-    bestGroup: 'Recommended'
+    bestGroup: 'Recommended',
+    playlistCount: (shown: number, total: number) =>
+      shown < total ? `${shown} of ${total} videos` : `${total} videos`,
+    choose: 'Choose videos',
+    addAll: 'Add all',
+    selectTitle: 'Choose videos to add',
+    selectAll: 'Select all',
+    selectNone: 'Select none',
+    addSelected: (n: number) => (n === 0 ? 'Add none' : `Add ${n}`),
+    cancel: 'Cancel',
+    capped: (cap: number) =>
+      `Only the first ${cap} are listed — long channels are capped to keep this fast.`
   },
 
   downloader: {

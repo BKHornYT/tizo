@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { probe } from '../engine/probe'
+import { inspectPlaylist, probe } from '../engine/probe'
 import { cancelDownload, startDownload } from '../engine/download'
 import { loadSettings } from '../store/settings'
 import type { FormatOption, ProgressEvent, QueueItem } from '../../shared/types'
@@ -60,7 +60,8 @@ function blank(url: string): QueueItem {
     downloadedBytes: null,
     totalBytes: null,
     outputPath: null,
-    error: null
+    error: null,
+    playlist: null
   }
 }
 
@@ -100,6 +101,20 @@ async function runProbe(id: string, hasFfmpeg: boolean): Promise<void> {
   const item = items.get(id)
   if (!item) return
 
+  // Playlists are checked first and cheaply (metadata only). Running the full
+  // per-video probe on a channel URL would extract hundreds of videos before
+  // discovering it was never a single video at all.
+  const asPlaylist = await inspectPlaylist(item.url)
+  if (!items.has(id)) return
+  if (asPlaylist.ok && asPlaylist.value) {
+    patch(id, {
+      state: 'playlist',
+      title: asPlaylist.value.title,
+      playlist: asPlaylist.value
+    })
+    return
+  }
+
   const result = await probe(item.url)
   if (!items.has(id)) return // removed while probing
 
@@ -122,6 +137,33 @@ async function runProbe(id: string, hasFfmpeg: boolean): Promise<void> {
     formatId: chosen?.id ?? null,
     url: info.webpageUrl
   })
+}
+
+/**
+ * Replaces a playlist row with one queue item per chosen video.
+ *
+ * The playlist row is removed rather than kept as a parent: once expanded it has
+ * no further job, and leaving it behind would imply the selection can be redone
+ * when the entries are already gone.
+ */
+export function expandPlaylist(id: string, urls: string[], hasFfmpeg: boolean): void {
+  const item = items.get(id)
+  if (!item || item.state !== 'playlist') return
+
+  const wanted = new Set(urls)
+  const chosen = (item.playlist?.entries ?? []).filter((e) => wanted.has(e.url))
+
+  for (const entry of chosen) {
+    const child = blank(entry.url)
+    // Seed the title so the row is readable while its own probe is still running.
+    child.title = entry.title
+    child.duration = entry.duration
+    items.set(child.id, child)
+    void runProbe(child.id, hasFfmpeg)
+  }
+
+  items.delete(id)
+  emit()
 }
 
 export function setFormat(id: string, formatId: string): void {

@@ -2,11 +2,13 @@ import { useCallback, useEffect, useState } from 'react'
 import type { EngineStatus, QueueItem } from '../../../shared/types'
 import { strings } from '../strings'
 import QueueRow from '../components/QueueRow'
+import PlaylistPicker from '../components/PlaylistPicker'
 
 export default function Queue({ status }: { status: EngineStatus | null }): React.JSX.Element {
   const [items, setItems] = useState<QueueItem[]>([])
   const [text, setText] = useState('')
   const [dragging, setDragging] = useState(false)
+  const [choosing, setChoosing] = useState<QueueItem | null>(null)
 
   useEffect(() => {
     void window.tizo.queue.list().then(setItems)
@@ -105,7 +107,12 @@ export default function Queue({ status }: { status: EngineStatus | null }): Reac
               </div>
               <ul className="flex flex-col gap-2">
                 {items.map((item) => (
-                  <QueueRow key={item.id} item={item} hasFfmpeg={hasFfmpeg} />
+                  <QueueRow
+                    key={item.id}
+                    item={item}
+                    hasFfmpeg={hasFfmpeg}
+                    onChoose={setChoosing}
+                  />
                 ))}
               </ul>
             </>
@@ -142,6 +149,17 @@ export default function Queue({ status }: { status: EngineStatus | null }): Reac
             )}
           </div>
         </div>
+      )}
+
+      {choosing?.playlist && (
+        <PlaylistPicker
+          playlist={choosing.playlist}
+          onCancel={() => setChoosing(null)}
+          onAdd={(urls) => {
+            void window.tizo.queue.expand(choosing.id, urls)
+            setChoosing(null)
+          }}
+        />
       )}
 
       {dragging && (

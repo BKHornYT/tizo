@@ -11,6 +11,27 @@ Newest first. One entry per change, using this format:
 
 ---
 
+## 2026-08-20 — Playlist and channel expansion
+**What:** Adding a playlist or channel link now creates a playlist row rather than
+failing or silently grabbing one video. `inspectPlaylist()` lists entries via
+`--flat-playlist` (metadata only, capped at 500), and the row offers "Add all" or
+"Choose videos", which opens a picker with everything preselected. Chosen entries
+become individual queue items, seeded with their title so rows are readable while
+their own probes run.
+**Why:** The last open item in Phase 4, and the reason the reference app has a
+Playlist menu at all.
+**Files:** src/main/engine/probe.ts, src/main/queue/index.ts, src/main/ipc.ts,
+src/preload/index.ts, src/shared/types.ts,
+src/renderer/src/components/{PlaylistPicker,QueueRow}.tsx,
+src/renderer/src/views/Queue.tsx, src/renderer/src/strings.ts, task.md
+
+**Two judgement calls worth keeping:** a `watch?v=…&list=…` URL resolves to the
+single video it names, because someone pasting a link they were watching wants that
+video and not the 400-item mix it happened to be playing inside — "add the whole
+playlist" should be a choice, not a surprise. And the picker starts with everything
+selected: a person who pasted a playlist link usually wants the playlist, so the list
+is there to deselect a few, not to tick forty boxes.
+
 ## 2026-08-20 — Rebuilt the UI around a download queue
 **What:** Replaced the single-video form with a queue-centred UI, which is the shape
 the reference app uses and the part of it the first build missed entirely. New

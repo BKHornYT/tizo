@@ -9,7 +9,7 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
 - [x] Drag & drop links anywhere on the window
 - [x] Download-all / stop-all / clear-finished
 - [x] Per-item format dropdown (recommended + all formats)
-- [ ] Playlist/channel expansion with per-item selection
+- [x] Playlist/channel expansion with per-item selection
 - [ ] Sortable queue columns
 
 Note: "pause" is stop + retry — yt-dlp resumes from its `.part` file, so a
