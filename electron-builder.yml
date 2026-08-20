@@ -1,0 +1,47 @@
+appId: com.bkhorn.tizo
+productName: Video Downloader Tizo
+copyright: Copyright © 2026 BKHornYT
+
+directories:
+  buildResources: build
+  output: dist
+
+files:
+  - out/**
+  - '!**/*.map'
+  - '!**/*.ts'
+
+# Slim installer by design: ffmpeg, yt-dlp and the site profiles are NOT packed
+# here. They arrive in the first-run Essentials download. See docs/plan.md.
+extraResources: []
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+    - target: zip
+      arch: [x64]
+  artifactName: ${name}-${version}-${arch}.${ext}
+  # Unsigned for now — users will see a SmartScreen warning. Signing config
+  # slots in here later without touching anything else.
+
+nsis:
+  artifactName: ${name}-${version}-setup.${ext}
+  oneClick: false
+  perMachine: false # per-user install needs no admin rights
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Video Downloader Tizo
+  deleteAppDataOnUninstall: false # keep history and downloaded components
+
+portable:
+  artifactName: ${name}-${version}-portable.${ext}
+  requestExecutionLevel: user
+
+publish:
+  provider: github
+  owner: BKHornYT
+  repo: tizo
