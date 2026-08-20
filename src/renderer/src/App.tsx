@@ -1,10 +1,35 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { EngineStatus, FormatOption, MediaInfo, ProgressEvent } from '../../shared/types'
+import type {
+  EngineStatus,
+  FormatOption,
+  MediaInfo,
+  ProgressEvent,
+  SetupPlan
+} from '../../shared/types'
 import { bytes, duration, speed } from './format'
+import SetupWizard from './SetupWizard'
 
 type Phase = 'idle' | 'probing' | 'ready' | 'running' | 'finished'
 
 export default function App(): React.JSX.Element {
+  const [plan, setPlan] = useState<SetupPlan | null>(null)
+
+  const refreshPlan = useCallback(async () => {
+    setPlan(await window.tizo.setupPlan())
+  }, [])
+
+  useEffect(() => {
+    void refreshPlan()
+  }, [refreshPlan])
+
+  // Nothing renders until we know whether setup is owed — flashing the main UI
+  // and then replacing it with a wizard reads as a bug.
+  if (!plan) return <div className="h-full bg-ink-950" />
+  if (plan.required) return <SetupWizard plan={plan} onDone={() => void refreshPlan()} />
+  return <Downloader />
+}
+
+function Downloader(): React.JSX.Element {
   const [status, setStatus] = useState<EngineStatus | null>(null)
   const [url, setUrl] = useState('')
   const [outDir, setOutDir] = useState('')

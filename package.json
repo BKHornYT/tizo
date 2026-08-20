@@ -12,10 +12,12 @@
     "build": "electron-vite build",
     "typecheck": "tsc --noEmit",
     "dist": "npm run build && electron-builder --win",
-    "dist:dir": "npm run build && electron-builder --win --dir"
+    "dist:dir": "npm run build && electron-builder --win --dir",
+    "test:fetcher": "node --experimental-strip-types scripts/test-fetcher.ts"
   },
   "dependencies": {
-    "electron-updater": "6.8.9"
+    "electron-updater": "6.8.9",
+    "extract-zip": "^2.0.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",

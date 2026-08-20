@@ -19,9 +19,8 @@ more than a yt-dlp skin:
 1. **It updates itself** — the app, the yt-dlp engine, and the addon list all
    update on independent schedules, so the developer can push fixes to users.
 2. **It sets itself up once** — the installer is slim; on first launch the app
-   downloads a mandatory ~110 MB Essentials bundle (ffmpeg, current yt-dlp,
-   impersonation libs, site profiles). After that everything works, and optional
-   addons install on demand for the rest.
+   downloads a mandatory ~100 MB Essentials bundle (ffmpeg + current yt-dlp).
+   After that everything works, and optional addons install on demand.
 
 Site coverage is deliberately **broad and unfiltered** — everything yt-dlp
 supports, ~1800 sites including mainstream, social, and adult. No blocklist.
@@ -32,9 +31,11 @@ file — and a week later gets a bugfix without doing anything.
 
 ## Current State
 
-- **Works:** Electron shell builds and runs (`npm run dev`), IPC bridge verified
-  end to end, all three electron-builder targets configured, repo pushed
-- **In progress:** Phase 1 — the download engine
+- **Works:** Electron shell, full yt-dlp engine (probe, download, progress,
+  cancel, error classification), component manager with verified resume and
+  integrity checking, first-run setup wizard, all three build targets configured
+- **In progress:** Phase 2 — component manager built and tested; blocked on repo
+  visibility for the real ffmpeg download (see task.md Blocked)
 - **Known broken / not started:** everything else. No yt-dlp wiring, no setup
   wizard, no real UI, no icons, no release pipeline
 
@@ -59,6 +60,7 @@ npm run typecheck    # tsc --noEmit
 npm run build        # bundles main + preload + renderer into out/
 npm run dist         # build + electron-builder → installer, portable, zip in dist/
 npm run dist:dir     # unpacked build, no installers — much faster for smoke tests
+npm run test:fetcher # hits the network: verifies resume, integrity, corrupt-part discard
 ```
 
 No env vars or credentials needed yet. Publishing releases will need `GH_TOKEN`
@@ -67,19 +69,26 @@ No env vars or credentials needed yet. Publishing releases will need `GH_TOKEN`
 ## File Structure
 
 ```
+components.json           runtime component registry — also bundled as the offline fallback
 electron.vite.config.ts   three build targets: main, preload, renderer
 electron-builder.yml      NSIS + portable + zip, GitHub publish config
 tsconfig.json             one config covering main, preload and renderer
 src/main/index.ts         window creation, single-instance lock, IPC registration
 src/preload/index.ts      contextBridge; the ONLY main↔renderer surface
-src/renderer/src/         React + Tailwind GUI (App.tsx, index.css, env.d.ts)
+src/main/components/      fetch (resumable) + verify + unzip — powers setup AND addons
+src/main/setup/           first-run orchestration and on-disk setup state
+src/renderer/src/         React + Tailwind GUI (App.tsx, SetupWizard.tsx, index.css)
+scripts/test-fetcher.ts   network test for the resume path; run via npm run test:fetcher
 build/                    installer icons and branding (empty until Phase 8)
 resources/                files packed into the app; resources/bin is gitignored
 docs/plan.md              the full build plan — phases, architecture, addon schema
+docs/features.md          feature set vs. the reference app — adopted, improved, skipped
 ```
 
 See [docs/plan.md](docs/plan.md) for architecture, the addon manifest format,
-portable-mode design, and the phase breakdown.
+portable-mode design, and the phase breakdown. See
+[docs/features.md](docs/features.md) for the feature set and where we
+deliberately differ from the reference app.
 
 ## Key Decisions
 
@@ -90,9 +99,13 @@ Newest first.
   step beats surprise popups mid-download. *Risk accepted:* a failed download
   means a dead app, so resumable transfers, sha256 verification, and a manual
   "install from file" path are required, not polish.
-- **2026-08-20 — Hybrid bundle sourcing.** ffmpeg + impersonation + site profiles
-  from a self-hosted versioned zip; yt-dlp pulled live from its own repo at setup
-  so the engine is current at install time rather than build time.
+- **2026-08-20 — Hybrid bundle sourcing.** ffmpeg from a self-hosted versioned
+  zip; yt-dlp pulled live from its own repo at setup so the engine is current at
+  install time rather than build time; site profiles fetched from the registry as
+  JSON so tuning fixes ship without a re-download.
+- **2026-08-20 — Cut the impersonation component before building it.** Verified the
+  official `yt-dlp.exe` already bundles curl_cffi with working impersonate targets,
+  so the planned ~8 MB download would have delivered nothing.
 - **2026-08-20 — Broad, unfiltered site coverage.** Everything yt-dlp supports,
   adult sites included. Excluding categories would mean deliberately adding a
   blocklist; we aren't. New sites arrive via the registry, not app releases.
@@ -118,9 +131,11 @@ Newest first.
 - **yt-dlp supports ~1800 sites already.** The addon system is *not* mainly about
   unsupported sites — it's about capabilities (ffmpeg, auth/cookies). Don't design
   it as "one addon per website"; that popup would almost never fire.
-- **The site profile pack is tuning, not extractors.** It carries headers, player
-  clients, rate limits and format preferences — never present it to users as
-  "downloading site support", and never put a progress bar over an empty payload.
+- **The site profile pack is tuning, not extractors.** It carries impersonation
+  targets, player clients, rate limits and format preferences — never present it to
+  users as "downloading site support", and never put a progress bar over an empty
+  payload. Two planned components were cut after measurement for exactly this
+  reason; measure before building any new one.
 - **A mandatory setup gate turns any download failure into a dead app.** Resume,
   verify, and the manual install path are load-bearing. Write setup state only
   after verification, or an interrupted run leaves an app that wrongly believes
@@ -138,6 +153,9 @@ Newest first.
   from `'./index'` resolved to *itself*, silently killing the `Window.tizo` type.
   Global declarations live in `src/renderer/src/env.d.ts` instead.
 - **TypeScript 6 removed `baseUrl`.** Path aliases must be relative (`./src/...`).
+- **No TS parameter properties in `src/main/components/fetcher.ts`.** It is run
+  directly by `node --experimental-strip-types` in the test script, and strip-only
+  mode rejects `constructor(private readonly x)`. Write those fields longhand.
 - **Without ffmpeg, YouTube caps at 360p — not 720p.** Measured 2026-08-20: a
   YouTube video exposes 37 video-only formats and exactly *one* progressive
   (audio+video) stream, at 360p. Everything above that must be muxed. This is

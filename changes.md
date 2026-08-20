@@ -11,6 +11,49 @@ Newest first. One entry per change, using this format:
 
 ---
 
+## 2026-08-20 — Phase 2: component manager and first-run setup
+**What:** Built the download → verify → unzip → activate pipeline that powers both
+first-run setup and later addons. `components/fetcher.ts` does resumable HTTP-range
+transfers with backoff, sha256 verification, and discards a corrupt part rather than
+resuming bad bytes forever. `components/manifest.ts` fetches the registry with a
+three-step fallback (remote → cache → copy bundled into the app), so a registry
+outage or a bad manifest push cannot brick a mandatory setup. `components/install.ts`
+unpacks and then *executes* each binary to prove it runs — size and hash cannot catch
+an AV quarantine. `setup/` orchestrates it behind one combined progress bar and only
+records success after that execution check. Published the `essentials-v1` release
+with a repackaged ffmpeg 9.0.1 + ffprobe (73.8 MB zipped). Added a real network test
+for the resume path: 5/5 passing, confirmed resume continues mid-file rather than
+restarting.
+**Why:** Phase 2 of the plan. Setup is mandatory, so every failure mode here turns
+into a dead app — hence resume, verification and the offline install path being
+treated as requirements rather than polish.
+**Files:** components.json, src/main/components/{fetcher,manifest,install}.ts,
+src/main/setup/{index,state}.ts, src/main/ipc.ts, src/preload/index.ts,
+src/shared/types.ts, src/renderer/src/{App.tsx,SetupWizard.tsx},
+scripts/test-fetcher.ts, package.json, CLAUDE.md, docs/plan.md, task.md
+
+**Cut a component before building it.** The plan listed ~8 MB of "impersonation
+libs". Checked first: the official `yt-dlp.exe` already bundles curl_cffi and lists
+working impersonate targets, so that download would have delivered nothing. Removed
+from the plan. Essentials is now ffmpeg + yt-dlp only, ~92 MB. The site profile pack
+moved into the registry JSON, where it belongs — a few KB that changes often should
+not sit inside an 80 MB archive.
+
+**Blocked:** end-to-end setup cannot be tested while `BKHornYT/tizo` is private —
+both the release asset and the raw manifest 404 without auth.
+
+## 2026-08-20 — Reference app reviewed, feature set expanded
+**What:** Reviewed screenshots of "Videodownloader" and wrote `docs/features.md`
+recording what we adopt, what we do differently, and what we skip. Added playlist
+monitoring as new Phase 6.5, plus drag-and-drop, speed limiting, geo-bypass,
+folder-per-download, file-exists rules, tray-on-close, and sortable queue columns to
+existing phases. Logged i18n as an open question — English-only at launch, but UI
+strings centralised from the start since retrofitting is far more expensive.
+**Why:** User supplied it as inspiration and asked for something better. Several of
+their ideas are genuinely good; several of their defaults are not, and the reasoning
+for each divergence is worth recording so it is not re-litigated later.
+**Files:** docs/features.md, task.md, CLAUDE.md
+
 ## 2026-08-20 — Phase 1: download engine
 **What:** Built the yt-dlp engine behind a typed IPC surface. `engine/binaries.ts`
 resolves yt-dlp and ffmpeg (managed binary first, PATH fallback in dev only — a

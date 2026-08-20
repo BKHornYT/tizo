@@ -1,0 +1,52 @@
+{
+  "schema": 1,
+  "_comment": "Runtime component registry. Fetched by the app at setup and on demand, so new components and revised site tuning ship without an app release. Keep this file valid JSON — a broken manifest blocks first-run setup for every user.",
+
+  "essentials": {
+    "version": 1,
+    "components": ["ffmpeg", "ytdlp"]
+  },
+
+  "components": [
+    {
+      "id": "ffmpeg",
+      "name": "HQ Pack",
+      "summary": "Merges video and audio, converts to MP3, embeds subtitles.",
+      "version": "9.0.1",
+      "kind": "zip",
+      "size": 77384503,
+      "sha256": "30653ed4249bc24babc1f4948b0eb2d8f8ac5b78d53ae65bb12a1b941f8bb0e4",
+      "url": "https://github.com/BKHornYT/tizo/releases/download/essentials-v1/tizo-ffmpeg-win64.zip",
+      "provides": ["merge", "convert", "audio-extract", "embed-subs"],
+      "binaries": ["ffmpeg.exe", "ffprobe.exe"]
+    },
+    {
+      "id": "ytdlp",
+      "name": "Download engine",
+      "summary": "The extractor that talks to ~1800 sites.",
+      "version": "latest",
+      "kind": "binary",
+      "size": 17840399,
+      "sha256": null,
+      "url": "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe",
+      "provides": ["extract", "download"],
+      "binaries": ["yt-dlp.exe"],
+      "_comment": "sha256 is null by design: this tracks yt-dlp's rolling latest release, so the hash changes on their schedule, not ours. Integrity comes from HTTPS plus a post-download `--version` execution check. Pinning a hash here would break setup every time yt-dlp ships."
+    }
+  ],
+
+  "siteProfiles": {
+    "_comment": "Per-site tuning applied to yt-dlp invocations. Not extractors — yt-dlp already supports these sites. This exists so a tuning fix ships without an app release.",
+    "youtube.com": { "impersonate": null, "concurrentFragments": 4 },
+    "instagram.com": { "impersonate": "chrome", "needsCookies": true },
+    "tiktok.com": { "impersonate": "chrome" },
+    "x.com": { "impersonate": "chrome" },
+    "twitter.com": { "impersonate": "chrome" },
+    "facebook.com": { "needsCookies": true },
+    "pornhub.com": { "impersonate": "chrome" }
+  },
+
+  "domains": {
+    "_comment": "Maps a domain with no working extractor to the optional component that adds one. Empty for now — the request pipeline fills it as real cases arrive."
+  }
+}

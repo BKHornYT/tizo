@@ -1,4 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { cancelSetup, getSetupPlan, installComponentFromFile, runSetup } from './setup'
 import { engineStatus } from './engine/binaries'
 import { probe } from './engine/probe'
 import { cancelDownload, startDownload, type DownloadRequest } from './engine/download'
@@ -33,6 +34,29 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle('engine:cancel', (_e, jobId: unknown) =>
     typeof jobId === 'string' ? cancelDownload(jobId) : false
   )
+
+  ipcMain.handle('setup:plan', () => getSetupPlan())
+
+  ipcMain.handle('setup:run', () =>
+    runSetup((progress) => {
+      const win = getWindow()
+      if (win && !win.isDestroyed()) win.webContents.send('setup:progress', progress)
+    })
+  )
+
+  ipcMain.handle('setup:cancel', () => cancelSetup())
+
+  ipcMain.handle('setup:installFromFile', async (_e, componentId: unknown) => {
+    const win = getWindow()
+    if (!win || typeof componentId !== 'string') return { ok: false, error: 'Bad request.' }
+    const picked = await dialog.showOpenDialog(win, {
+      title: 'Select the component archive',
+      filters: [{ name: 'Zip archive', extensions: ['zip'] }],
+      properties: ['openFile']
+    })
+    if (picked.canceled || !picked.filePaths[0]) return { ok: false, error: 'Cancelled.' }
+    return installComponentFromFile(componentId, picked.filePaths[0])
+  })
 
   ipcMain.handle('paths:downloadDir', () => defaultDownloadDir())
 

@@ -3,7 +3,9 @@ import type {
   EngineStatus,
   MediaInfo,
   ProgressEvent,
-  Result
+  Result,
+  SetupPlan,
+  SetupProgress
 } from '../shared/types'
 
 export interface DownloadArgs {
@@ -36,6 +38,25 @@ const api = {
     ipcRenderer.invoke('engine:download', args),
 
   cancel: (jobId: string): Promise<boolean> => ipcRenderer.invoke('engine:cancel', jobId),
+
+  setupPlan: (): Promise<SetupPlan> => ipcRenderer.invoke('setup:plan'),
+
+  runSetup: (): Promise<void> => ipcRenderer.invoke('setup:run'),
+
+  cancelSetup: (): Promise<void> => ipcRenderer.invoke('setup:cancel'),
+
+  installFromFile: (
+    componentId: string
+  ): Promise<{ ok: true } | { ok: false; error: string }> =>
+    ipcRenderer.invoke('setup:installFromFile', componentId),
+
+  onSetupProgress: (handler: (progress: SetupProgress) => void): (() => void) => {
+    const listener = (_e: unknown, progress: SetupProgress): void => handler(progress)
+    ipcRenderer.on('setup:progress', listener)
+    return () => {
+      ipcRenderer.off('setup:progress', listener)
+    }
+  },
 
   defaultDownloadDir: (): Promise<string> => ipcRenderer.invoke('paths:downloadDir'),
 

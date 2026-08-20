@@ -94,3 +94,40 @@ export interface ProgressEvent {
 }
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: EngineError }
+
+// --- First-run setup -------------------------------------------------------
+
+export interface ComponentSummary {
+  id: string
+  name: string
+  summary: string
+  version: string
+  /** Bytes. */
+  size: number
+  installed: boolean
+}
+
+export interface SetupPlan {
+  /** True while any Essentials component is missing. The app is unusable until false. */
+  required: boolean
+  /** Which copy of the registry we are working from. */
+  manifestSource: 'remote' | 'cache' | 'bundled'
+  essentialsVersion: number
+  completedAt: string | null
+  components: ComponentSummary[]
+  /** Bytes still to download. */
+  totalBytes: number
+}
+
+export interface SetupProgress {
+  phase: 'running' | 'done' | 'error' | 'cancelled'
+  componentId: string | null
+  componentName: string | null
+  stage: 'downloading' | 'verifying' | 'extracting' | 'checking' | null
+  /** Combined across every component, so the bar never restarts at zero. */
+  overallPercent: number
+  receivedBytes: number
+  totalBytes: number
+  speed: number | null
+  error?: string
+}

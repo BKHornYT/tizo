@@ -41,19 +41,29 @@ through typed IPC channels exposed in preload.
 The installer is slim; on first launch the app **must** fetch Essentials before it
 will do anything. Users cannot skip this.
 
-### What's in it (~110 MB)
+### What's in it (~100 MB)
 
 | Component | Size | Source | Why it's real |
 |---|---|---|---|
-| ffmpeg | ~82 MB | self-hosted zip | Muxing anything above 360p, MP3, subtitle embed |
-| yt-dlp | ~17 MB | **live from `yt-dlp/yt-dlp` latest** | Current at setup time, not build time |
-| Impersonation libs | ~8 MB | self-hosted zip | TLS fingerprint spoofing — Instagram and several CDNs hard-block default clients |
-| Site profile pack | ~2 MB | self-hosted zip | Per-site tuning: headers/UA, YouTube player clients + PO-token config, rate limits, auth requirements, format preferences |
+| ffmpeg + ffprobe | ~82 MB | self-hosted zip | Muxing anything above 360p, MP3, subtitle embed |
+| yt-dlp | ~18 MB | **live from `yt-dlp/yt-dlp` latest** | Current at setup time, not build time |
 
-> **The site profile pack is NOT extractor code.** yt-dlp already supports ~1800
-> sites. This pack is per-site *tuning* that makes the top 50 work better than raw
-> defaults do. Never present it to users as "downloading site support" — and never
-> build a progress bar over a payload that does nothing.
+Plus a **site profile pack** — a few KB of JSON fetched from the registry, not part
+of the zip. Per-site tuning: impersonation target, YouTube player clients, rate
+limits, which sites need cookies, format preferences. It lives in the registry
+precisely *because* it is tiny and changes often — that way a tuning fix ships
+without an app release or a re-download.
+
+> **Two things this bundle deliberately does NOT contain**, both cut after
+> measurement rather than assumption:
+>
+> - **Impersonation libraries.** Verified 2026-08-20: the official `yt-dlp.exe`
+>   already bundles curl_cffi and lists working impersonate targets. A separate
+>   ~8 MB component would have downloaded nothing of value.
+> - **Extractor code for the "top 50 sites".** yt-dlp already supports ~1800 sites.
+>
+> Never present either to users as "downloading site support", and never put a
+> progress bar over a payload that does nothing.
 
 ### Failure handling — the part that matters
 
