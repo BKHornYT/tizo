@@ -85,7 +85,11 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
 - [x] `docs/releasing.md` — the process and what every release must contain
 - [x] v0.0.1 published — setup, portable, zip and `latest.yml` all live
 - [x] `releaseType: release` set so future tags skip the draft state
-- [ ] End-to-end proof: install v0.0.1 → push v0.0.2 → watch it self-update
+- [x] v0.0.2 published directly from CI — `releaseType: release` confirmed working
+- [ ] **End-to-end proof still owed:** install `tizo-0.0.1-setup.exe`, launch it,
+      and confirm it finds 0.0.2, downloads it, and shows the restart banner.
+      Both versions are live, so this is testable right now — and much harder to
+      test convincingly once 0.0.1 is old.
 - [ ] README with install instructions + SmartScreen note + legal disclaimer
 
 ## Blocked

@@ -19,6 +19,11 @@ landing as an invisible draft.
 release also serves as the auto-update proof — an installed v0.0.1 should find it.
 **Files:** package.json, package-lock.json, changes.md
 
+Published straight from CI with `draft=false`, confirming the `releaseType` fix —
+no manual publish step this time. The update feed at
+`releases/latest/download/latest.yml` now advertises 0.0.2, which is exactly what an
+installed 0.0.1 polls.
+
 ## 2026-08-20 — v0.0.1 released
 **What:** First public release: https://github.com/BKHornYT/tizo/releases/tag/v0.0.1
 carrying the setup exe (99 MB), portable exe (98 MB), zip (138 MB) and `latest.yml`.
