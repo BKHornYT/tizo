@@ -95,6 +95,7 @@ src/main/index.ts          window creation, single-instance lock, IPC registrati
 src/main/ipc.ts            every channel the renderer can reach
 src/main/paths.ts          portable-aware data directory resolution
 src/main/engine/args.ts    pure yt-dlp argument builder — no electron, so it is testable
+src/main/engine/scrape.ts  page scanner: last-resort media finder when no extractor matches
 src/main/engine/           binaries, probe (incl. playlists), download, error classes
 src/main/queue/            item state, probing, concurrency pump, playlist expansion
 src/main/components/       fetch (resumable) + verify + unzip — powers setup AND addons
@@ -140,6 +141,14 @@ deliberately differ from the reference app.
 
 Newest first.
 
+- **2026-08-20 — Page scanning is a fallback, never a first choice.** When yt-dlp
+  has no extractor, the app fetches the page and looks for `<video>`, `<source>`,
+  `og:video`, `contentUrl` and inline media URLs — what a person does with the
+  inspector. It runs *only* after an extractor has failed, and only for
+  `UNSUPPORTED_SITE`/`UNKNOWN`: scanning cannot solve a geo-block or a login wall.
+  Candidates are HEAD-verified before being offered, because regex over HTML finds
+  poster images and dead CDN paths that would otherwise become downloads which
+  fail for reasons the user cannot act on.
 - **2026-08-20 — Telemetry is two streams that share no key.** `/sites` carries
   `{domain: count}` with no identifier; `/install` carries a random UUID with no
   site data. Separate tables, no join. *Why:* the server can then answer "how many
@@ -259,6 +268,9 @@ Newest first.
   directly by `node --experimental-strip-types` in the test scripts, and
   strip-only mode rejects `constructor(private readonly x)`. Write those fields
   longhand, and give their runtime imports explicit `.ts` extensions.
+- **`electron-builder` does not bundle — it only packages `out/`.** CI must run
+  `npm run build` first or it ships an `app.asar` with no entry file. `npm run dist`
+  chains both, which is why this only ever appears in CI.
 - **A release without `latest.yml` breaks auto-update silently.** electron-builder
   uploads it automatically; never hand-curate a release by attaching only the
   exes. Installed copies simply stop finding updates, with no error anywhere.

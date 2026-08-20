@@ -27,6 +27,8 @@ export interface DownloadRequest {
   needsFfmpeg: boolean
   /** Overrides the configured output folder for this one job. */
   outDir?: string
+  /** Media URL found by scanning the page; downloaded instead of `url`. */
+  directUrl?: string
   /** Set after the user has answered a file-exists prompt. */
   resolveConflict?: 'overwrite' | 'rename'
 }
@@ -148,17 +150,23 @@ export async function startDownload(
   const outDir = req.outDir ?? settings.outputDir
   mkdirSync(outDir, { recursive: true })
 
+  // A scraped media URL is fetched directly, with the page it came from sent as
+  // the referer. Site tuning still keys off the page, not the CDN host.
+  const target = req.directUrl ?? req.url
+  const referer = req.directUrl ? req.url : undefined
+
   const profile = await siteProfile(req.url)
   const ffmpegDir = ffmpeg.path && ffmpeg.source === 'managed' ? dirname(ffmpeg.path) : null
 
   const effectiveRule = req.resolveConflict ?? settings.onFileExists
   const base = {
-    url: req.url,
+    url: target,
     format: req.format,
     outDir,
     needsFfmpeg: req.needsFfmpeg,
     profile,
-    ffmpegDir
+    ffmpegDir,
+    referer
   }
 
   let collisionSuffix: string | undefined

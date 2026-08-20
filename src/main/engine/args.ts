@@ -19,6 +19,8 @@ export interface ArgContext {
   ffmpegDir?: string | null
   /** Appended before the extension to dodge an existing file. */
   collisionSuffix?: string | undefined
+  /** Page the media was embedded on; required by many CDNs. */
+  referer?: string | undefined
 }
 
 export const PROGRESS_MARK = '@@TIZO@@'
@@ -96,6 +98,10 @@ export function buildDownloadArgs(ctx: ArgContext): string[] {
   }
 
   if (settings.geoBypass) args.push('--geo-bypass')
+
+  // A direct CDN link scraped from a page is routinely 403'd without the page
+  // it was embedded on.
+  if (ctx.referer) args.push('--referer', ctx.referer)
 
   if (profile?.impersonate) args.push('--impersonate', profile.impersonate)
   if (profile?.concurrentFragments && profile.concurrentFragments > 1) {

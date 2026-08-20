@@ -11,6 +11,33 @@ Newest first. One entry per change, using this format:
 
 ---
 
+## 2026-08-20 — Page-scan fallback for unsupported sites
+**What:** `src/main/engine/scrape.ts` does by hand what a person does with the
+inspector: fetches the page with a browser user-agent and pulls media URLs out of
+`<video>`, `<source>`, `og:video`/`twitter:player:stream`, JSON-LD `contentUrl`, and
+inline scripts. Candidates are ranked by how trustworthy the source is, resolved
+against the page URL, then HEAD-verified before any is offered. The winner is
+downloaded directly with the page sent as `--referer`.
+**Why:** Requested. Plenty of ordinary sites just put an mp4 on the page, and
+"unsupported" was giving up before trying the obvious thing.
+**Files:** src/main/engine/{scrape,args,download}.ts, src/main/queue/index.ts,
+src/shared/types.ts, CLAUDE.md, task.md
+
+**Three constraints that keep it honest:**
+- It runs **only after** an extractor has failed, and only for `UNSUPPORTED_SITE` or
+  `UNKNOWN`. Scanning cannot solve a geo-block, a login wall or a dead connection,
+  and trying would just replace a clear error with a confusing one.
+- Candidates are **HEAD-verified** — content-type must be video/audio, and anything
+  under 100 KB is rejected as a placeholder. Regex over HTML happily finds poster
+  images and dead CDN paths; offering one produces a download that fails for reasons
+  the user cannot act on, which is worse than an honest "not supported".
+- The referer is sent, because a direct CDN link scraped from a page is routinely
+  403'd without the page it was embedded on.
+
+When both the extractor and the scan come up empty the message says so plainly —
+"No video found on this page — this site is not supported yet" — with the report
+button beside it.
+
 ## 2026-08-20 — Tag-driven release pipeline
 **What:** `.github/workflows/release.yml` builds on `windows-latest` and publishes
 all four release files — setup exe, portable exe, zip, and `latest.yml` — on any

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { inspectPlaylist, probe } from '../engine/probe'
+import { scrapePage } from '../engine/scrape'
 import { cancelDownload, startDownload } from '../engine/download'
 import { loadSettings } from '../store/settings'
 import { maybeUpload, recordDownload } from '../stats'
@@ -62,7 +63,8 @@ function blank(url: string): QueueItem {
     totalBytes: null,
     outputPath: null,
     error: null,
-    playlist: null
+    playlist: null,
+    directUrl: null
   }
 }
 
@@ -120,7 +122,42 @@ async function runProbe(id: string, hasFfmpeg: boolean): Promise<void> {
   if (!items.has(id)) return // removed while probing
 
   if (!result.ok) {
-    patch(id, { state: 'error', error: result.error })
+    // Last resort: scan the page for a media file, the way a person would with
+    // the inspector. Only worth trying when no extractor handled the page — a
+    // geo-block or a login wall is not something scanning can solve.
+    const worthScanning =
+      result.error.code === 'UNSUPPORTED_SITE' || result.error.code === 'UNKNOWN'
+
+    if (worthScanning) {
+      const scraped = await scrapePage(item.url)
+      if (!items.has(id)) return
+      if (scraped) {
+        patch(id, {
+          state: 'ready',
+          title: scraped.info.title,
+          extractor: scraped.info.extractor,
+          formats: scraped.info.formats,
+          allFormats: [],
+          formatId: scraped.info.formats[0]?.id ?? 'b',
+          directUrl: scraped.directUrl,
+          error: null
+        })
+        return
+      }
+    }
+
+    patch(id, {
+      state: 'error',
+      error: worthScanning
+        ? {
+            ...result.error,
+            // Say what was actually attempted. "Unsupported" alone reads like we
+            // did not try, and it hides that scanning the page is a real second
+            // pass that also came up empty.
+            message: 'No video found on this page — this site is not supported yet.'
+          }
+        : result.error
+    })
     return
   }
 
@@ -294,7 +331,8 @@ async function pump(): Promise<void> {
       const request = {
         url: item.url,
         format: item.formatId,
-        needsFfmpeg: format?.needsFfmpeg ?? false
+        needsFfmpeg: format?.needsFfmpeg ?? false,
+        ...(item.directUrl ? { directUrl: item.directUrl } : {})
       }
 
       const result = await startDownload(request, onEvent)

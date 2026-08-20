@@ -219,6 +219,13 @@ export interface QueueItem {
 
   /** Present only while state is 'playlist'. */
   playlist: PlaylistInfo | null
+
+  /**
+   * Set when the media was found by scanning the page rather than by an
+   * extractor. Downloads target this instead of `url`, with `url` sent as the
+   * referer — many CDNs refuse a request that arrives without one.
+   */
+  directUrl: string | null
 }
 
 // --- Updates ---------------------------------------------------------------

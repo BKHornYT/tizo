@@ -42,6 +42,14 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
 
 ## Next
 
+### Page-scan fallback ✅
+- [x] Scan a page for `<video>`, `<source>`, `og:video`, `contentUrl`, inline media
+- [x] Resolve relative and protocol-relative URLs; ignore non-media
+- [x] HEAD-verify candidates (content-type, and reject sub-100 KB placeholders)
+- [x] Download the direct URL with the page sent as referer
+- [x] Only after an extractor fails, and only for UNSUPPORTED_SITE / UNKNOWN
+- [x] Clear message when both fail, with the report button beside it
+
 ### Phase 5 — Audio + subtitles
 - [ ] MP3/M4A extraction w/ bitrate picker, thumbnail + metadata embed
 - [ ] Subtitle language picker, download and/or embed
