@@ -11,6 +11,29 @@ Newest first. One entry per change, using this format:
 
 ---
 
+## 2026-08-20 — v0.0.1 released
+**What:** First public release: https://github.com/BKHornYT/tizo/releases/tag/v0.0.1
+carrying the setup exe (99 MB), portable exe (98 MB), zip (138 MB) and `latest.yml`.
+Verified the update feed fetches unauthenticated with the correct version and hash.
+**Why:** Every version should ship all three artifacts; this proves the pipeline
+rather than assuming it.
+**Files:** electron-builder.yml, CLAUDE.md, task.md, docs/releasing.md
+
+**Three CI failures got there, each a real bug worth having caught:**
+1. Every assertion passed and the run still failed — `process.exit()` while the
+   type-stripping loader has async handles open trips a libuv assertion on Windows.
+   Now sets `exitCode` instead. That also revealed `scripts/` was outside the
+   typecheck, so the test fixture had silently drifted from the `Settings` type.
+2. `app.asar` shipped with no entry file — the workflow called `electron-builder`
+   without running the bundler. `npm run dist` chains both locally, so this could
+   only ever appear in CI.
+3. The release landed as a **draft**, which is electron-builder's default and is
+   invisible to electron-updater. A green run would have produced a release that
+   updated nobody. Fixed with `releaseType: release`; v0.0.1 was published by hand.
+
+**Still unproven:** nothing has installed v0.0.1 and watched it update to a v0.0.2.
+That is the only test that shows the whole chain works.
+
 ## 2026-08-20 — Page-scan fallback for unsupported sites
 **What:** `src/main/engine/scrape.ts` does by hand what a person does with the
 inspector: fetches the page with a browser user-agent and pulls media URLs out of

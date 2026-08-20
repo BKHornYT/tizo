@@ -42,8 +42,8 @@ file — and a week later gets a bugfix without doing anything.
   the update system (app + engine channels, version in the toolbar), a first-run
   terms gate, GitHub-backed suggestions and site reports, opt-in usage counting,
   and a custom app icon
-- **In progress:** Phase 8 — all three targets build; none yet run from a packaged
-  install
+- **In progress:** Phase 9 — v0.0.1 is published; auto-update not yet proven
+  against a second version
 - **Known broken / not started:** no audio extraction or subtitles (Phase 5), no
   clipboard *watcher* or history or tray (Phase 6), no playlist monitoring (6.5),
   no optional addon gates (7), no icons or built installers (8), no CI release
@@ -271,6 +271,10 @@ Newest first.
 - **`electron-builder` does not bundle — it only packages `out/`.** CI must run
   `npm run build` first or it ships an `app.asar` with no entry file. `npm run dist`
   chains both, which is why this only ever appears in CI.
+- **electron-builder publishes a DRAFT release by default.** Drafts are invisible
+  to electron-updater, so a green CI run leaves a release that updates nobody until
+  someone presses Publish. Fixed with `releaseType: release` in
+  `electron-builder.yml`; v0.0.1 had to be published by hand.
 - **A release without `latest.yml` breaks auto-update silently.** electron-builder
   uploads it automatically; never hand-curate a release by attaching only the
   exes. Installed copies simply stop finding updates, with no error anywhere.

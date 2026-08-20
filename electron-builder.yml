@@ -46,3 +46,7 @@ publish:
   provider: github
   owner: BKHornYT
   repo: tizo
+  # electron-builder defaults to a draft release. Drafts are invisible to
+  # electron-updater, so a "successful" release would sit there updating nobody
+  # until someone remembered to press Publish.
+  releaseType: release

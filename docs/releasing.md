@@ -63,6 +63,13 @@ yt-dlp's own repo, and the component registry is read from `components.json` on
 `main`, so **site tuning and new components ship without a release at all**. Prefer
 that route for anything that does not need new app code.
 
+## The draft trap
+
+electron-builder publishes a **draft** release unless told otherwise, and a draft is
+invisible to electron-updater. CI goes green, the assets are all there, and nothing
+updates. `electron-builder.yml` now sets `releaseType: release`; if a release ever
+appears with an `untagged-…` URL, that setting has been lost.
+
 ## Code signing
 
 Not set up. Every install shows a SmartScreen warning until the app builds

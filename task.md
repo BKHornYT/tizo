@@ -83,7 +83,8 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
 - [x] GitHub Actions workflow: build + publish setup, portable, zip and
       `latest.yml` on every `v*` tag, with a tag/version mismatch guard
 - [x] `docs/releasing.md` — the process and what every release must contain
-- [ ] v0.0.1 release published (workflow running)
+- [x] v0.0.1 published — setup, portable, zip and `latest.yml` all live
+- [x] `releaseType: release` set so future tags skip the draft state
 - [ ] End-to-end proof: install v0.0.1 → push v0.0.2 → watch it self-update
 - [ ] README with install instructions + SmartScreen note + legal disclaimer
 
