@@ -42,9 +42,15 @@ jobs:
       - name: Typecheck and test
         run: npm test
 
-      - name: Build and publish
+      # electron-builder only packages what is already in out/ — it does not
+      # run the bundler. Skipping this produces an app.asar with no entry file
+      # and a build that fails at the very last step.
+      - name: Bundle main, preload and renderer
+        run: npm run build
+        env:
+          TIZO_STATS_ENDPOINT: ${{ vars.TIZO_STATS_ENDPOINT }}
+
+      - name: Package and publish
         run: npx electron-builder --win --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Optional. Unset means the app collects nothing at all.
-          TIZO_STATS_ENDPOINT: ${{ vars.TIZO_STATS_ENDPOINT }}
