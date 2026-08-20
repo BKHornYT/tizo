@@ -90,4 +90,7 @@ try {
 }
 
 console.log(failures === 0 ? '\nAll checks passed.' : `\n${failures} check(s) failed.`)
-process.exit(failures === 0 ? 0 : 1)
+// Set the code rather than calling process.exit(): forcing an exit while the
+// type-stripping loader still has async handles open trips a libuv assertion on
+// Windows, which fails CI even when every check passed.
+process.exitCode = failures === 0 ? 0 : 1

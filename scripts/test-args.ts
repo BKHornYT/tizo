@@ -18,7 +18,8 @@ const BASE: Settings = {
   onFileExists: 'skip-if-same',
   container: 'mp4',
   concurrentDownloads: 3,
-  clipboardWatch: false
+  clipboardWatch: false,
+  shareStats: false
 }
 
 const ctx = (settings: Partial<Settings>, extra: Record<string, unknown> = {}): string[] =>
@@ -122,4 +123,7 @@ ok(
 ok('no ffmpeg location when we do not own one', !ctx({}).includes('--ffmpeg-location'))
 
 console.log(failures === 0 ? '\nAll checks passed.' : `\n${failures} check(s) failed.`)
-process.exit(failures === 0 ? 0 : 1)
+// Set the code rather than calling process.exit(): forcing an exit while the
+// type-stripping loader still has async handles open trips a libuv assertion on
+// Windows, which fails CI even when every check passed.
+process.exitCode = failures === 0 ? 0 : 1
