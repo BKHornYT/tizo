@@ -11,6 +11,24 @@ Newest first. One entry per change, using this format:
 
 ---
 
+## 2026-08-20 — Tag-driven release pipeline
+**What:** `.github/workflows/release.yml` builds on `windows-latest` and publishes
+all four release files — setup exe, portable exe, zip, and `latest.yml` — on any
+`v*` tag. `docs/releasing.md` documents the process. Tagged v0.0.1 to run it for
+real rather than assume it works.
+**Why:** Every new version should ship all three artifacts without anyone assembling
+a release by hand.
+**Files:** .github/workflows/release.yml, docs/releasing.md, CLAUDE.md, task.md
+
+**Two ways a release breaks quietly, both now guarded:**
+- **Missing `latest.yml`.** It is the file electron-updater actually reads. Attach
+  only the exes and every installed copy stops finding updates, with no error
+  anywhere. electron-builder uploads it automatically — so never hand-curate.
+- **Tag/version mismatch.** electron-updater compares the version *inside* the
+  artifacts, not the tag. A release tagged `v0.2.0` containing a 0.1.0 build looks
+  perfectly fine on GitHub and updates nobody. The workflow now fails the build
+  instead of shipping it.
+
 ## 2026-08-20 — First packaged build
 **What:** `npm run dist` now produces all three Windows targets: NSIS installer
 (99.1 MB), portable exe (98.9 MB) and zip (138.7 MB), carrying the new app icon.

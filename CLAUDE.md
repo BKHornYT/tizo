@@ -126,10 +126,13 @@ server/                    Cloudflare Worker for usage counts + its schema and d
 resources/                 files packed into the app; resources/bin is gitignored
 docs/plan.md               phases, architecture, component schema, test matrix
 docs/features.md           feature set vs. the reference app — taken, improved, skipped
+docs/releasing.md          how to cut a release; what every release must contain
+.github/workflows/release.yml  builds and publishes all targets on a v* tag
 ```
 
 See [docs/plan.md](docs/plan.md) for architecture, the addon manifest format,
 portable-mode design, and the phase breakdown. See
+[docs/releasing.md](docs/releasing.md) for the release process. See
 [docs/features.md](docs/features.md) for the feature set and where we
 deliberately differ from the reference app.
 
@@ -256,6 +259,13 @@ Newest first.
   directly by `node --experimental-strip-types` in the test scripts, and
   strip-only mode rejects `constructor(private readonly x)`. Write those fields
   longhand, and give their runtime imports explicit `.ts` extensions.
+- **A release without `latest.yml` breaks auto-update silently.** electron-builder
+  uploads it automatically; never hand-curate a release by attaching only the
+  exes. Installed copies simply stop finding updates, with no error anywhere.
+- **The tag and `package.json` version must agree.** electron-updater reads the
+  version *inside* the artifacts, not the tag, so a release tagged `v0.2.0`
+  containing a 0.1.0 build looks correct on GitHub and updates nobody. The
+  workflow fails the build rather than let that ship.
 - **The installer is ~99 MB, not the ~50 MB the plan estimated.** Electron's
   runtime is the floor and there is little to trim. First-run total is therefore
   about 190 MB (99 MB installer + 92 MB Essentials), which is worth stating plainly

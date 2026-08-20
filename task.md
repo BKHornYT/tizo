@@ -72,9 +72,11 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
       and that the updater shows its banner instead of trying to self-replace
 
 ### Phase 9 — Release pipeline
-- [ ] Publish v0.0.1 as a GitHub release so the updater has something to see
-- [ ] GitHub Actions: build + publish on tag push
-- [ ] End-to-end proof: install v1.0.0 → push v1.0.1 → watch it self-update
+- [x] GitHub Actions workflow: build + publish setup, portable, zip and
+      `latest.yml` on every `v*` tag, with a tag/version mismatch guard
+- [x] `docs/releasing.md` — the process and what every release must contain
+- [ ] v0.0.1 release published (workflow running)
+- [ ] End-to-end proof: install v0.0.1 → push v0.0.2 → watch it self-update
 - [ ] README with install instructions + SmartScreen note + legal disclaimer
 
 ## Blocked
