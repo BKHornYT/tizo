@@ -72,7 +72,7 @@ npm run typecheck    # tsc --noEmit
 npm run build        # bundles main + preload + renderer into out/
 npm run dist         # build + electron-builder → installer, portable, zip in dist/
 npm run dist:dir     # unpacked build, no installers — much faster for smoke tests
-npm test                # offline suite: typecheck + argument-builder assertions
+npm test                # offline suite: typecheck + argument and format assertions
 npm run test:fetcher    # network: resume, integrity, corrupt-part discard
 npm run test:essentials # network, ~92 MB: real installer against real published assets
 ```
@@ -95,6 +95,7 @@ src/main/index.ts          window creation, single-instance lock, IPC registrati
 src/main/ipc.ts            every channel the renderer can reach
 src/main/paths.ts          portable-aware data directory resolution
 src/main/engine/args.ts    pure yt-dlp argument builder — no electron, so it is testable
+src/main/engine/formats.ts pure format shaping — no electron, so it is testable
 src/main/engine/scrape.ts  page scanner: last-resort media finder when no extractor matches
 src/main/engine/           binaries, probe (incl. playlists), download, error classes
 src/main/queue/            item state, probing, concurrency pump, playlist expansion
@@ -259,6 +260,13 @@ Newest first.
 - **Screen capture of the window comes out black under GPU compositing.** Launch
   with `--disable-gpu` when a screenshot is needed, or the image is solid black
   with no error.
+- **A codec field has three states, not two.** A named codec, `'none'` meaning the
+  stream is genuinely absent, and `null`/absent meaning yt-dlp did not look. The
+  Generic extractor returns the third for a plain file it finds on a page — a real,
+  downloadable mp4 with `vcodec: null` and no `height`. Treating unknown as absent
+  silently discarded every such result, leaving a queue row with nothing to
+  download while yt-dlp had already found the file. Guarded by
+  `npm run test:formats`.
 - **`ffprobe` takes `-version`, not `--version`.** The ffmpeg family uses one
   dash, yt-dlp uses two. Guessing the flag from a filename prefix made every HQ
   Pack install fail at the final execution check with a message blaming

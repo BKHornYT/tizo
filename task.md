@@ -50,6 +50,12 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
 - [x] Only after an extractor fails, and only for UNSUPPORTED_SITE / UNKNOWN
 - [x] Clear message when both fail, with the report button beside it
 
+### Generic-extractor fix ✅
+- [x] Codec `null` (unknown) no longer treated as `'none'` (absent)
+- [x] "Original quality" row when a site offers one file with no resolution
+- [x] Pure `engine/formats.ts` split out so shaping is testable
+- [x] `npm run test:formats` — 17 assertions across generic, YouTube and HLS shapes
+
 ### Phase 5 — Audio + subtitles
 - [ ] MP3/M4A extraction w/ bitrate picker, thumbnail + metadata embed
 - [ ] Subtitle language picker, download and/or embed

@@ -11,6 +11,25 @@ Newest first. One entry per change, using this format:
 
 ---
 
+## 2026-08-20 — v0.0.3: fix sites that expose a plain mp4
+**What:** A reported site returned a perfectly good mp4 that the app refused to
+download. The page scan was not at fault and never even ran — yt-dlp's Generic
+extractor had already found the file. The bug was in format shaping: codec fields
+have three states (a named codec, `'none'` for genuinely absent, and `null` for
+"did not look"), and the filter treated the third like the second. The single
+format was discarded, leaving a queue row with nothing to download. Fixed the codec
+logic, added an "Original quality" option for sites offering one file with no
+resolution, and split the pure shaping into `engine/formats.ts` so it can be tested.
+**Why:** Reported directly, and it affects every site whose video is just a file on
+the page — which is a large share of the smaller web.
+**Files:** src/main/engine/{formats,probe}.ts, scripts/test-formats.ts, package.json,
+CLAUDE.md, task.md
+
+**Verified against the real response**: that page produced 0 options before and 1
+working option after. `npm run test:formats` covers all three shapes — generic
+single file, a YouTube-style ladder, and an HLS manifest — 17 assertions, including
+that the YouTube path still picks progressive-only selectors for the no-ffmpeg rows.
+
 ## 2026-08-20 — v0.0.2
 **What:** Second release. Contains the page-scan fallback for sites with no
 extractor, and `releaseType: release` so this one publishes directly instead of
