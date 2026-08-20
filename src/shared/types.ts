@@ -160,3 +160,42 @@ export interface Settings {
   concurrentDownloads: number
   clipboardWatch: boolean
 }
+
+// --- Download queue --------------------------------------------------------
+
+export type ItemState =
+  | 'probing'   // fetching metadata
+  | 'ready'     // has formats, waiting for the user
+  | 'queued'    // user pressed go; waiting on a concurrency slot
+  | 'downloading'
+  | 'processing' // merging / converting
+  | 'done'
+  | 'error'
+  | 'cancelled'
+
+export interface QueueItem {
+  id: string
+  url: string
+  state: ItemState
+  addedAt: number
+
+  title: string | null
+  uploader: string | null
+  duration: number | null
+  thumbnail: string | null
+  extractor: string | null
+
+  formats: FormatOption[]
+  allFormats: FormatOption[]
+  /** Selected format id; defaults to the best option that works right now. */
+  formatId: string | null
+
+  percent: number | null
+  speed: number | null
+  eta: number | null
+  downloadedBytes: number | null
+  totalBytes: number | null
+
+  outputPath: string | null
+  error: EngineError | null
+}

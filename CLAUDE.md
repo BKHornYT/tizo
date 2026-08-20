@@ -36,8 +36,9 @@ file — and a week later gets a bugfix without doing anything.
   integrity checking, first-run setup verified end to end against the published
   assets, setup wizard, and the core GUI — download and settings screens, format
   picker with an inline all-formats expander, speed limit, geo-bypass,
-  folder-per-download, container choice and file-collision handling
-- **In progress:** Phase 4 — download queue and playlists
+  folder-per-download, container choice and file-collision handling, and a
+  queue-centred UI with concurrency, drag-and-drop and batch paste
+- **In progress:** Phase 4 — queue is built; playlist expansion still to come
 - **Known broken / not started:** everything else. No yt-dlp wiring, no setup
   wizard, no real UI, no icons, no release pipeline
 
@@ -87,7 +88,8 @@ src/main/store/settings.ts persisted settings, validated field-by-field on read
 src/main/components/      fetch (resumable) + verify + unzip — powers setup AND addons
 src/main/setup/           first-run orchestration and on-disk setup state
 src/renderer/src/         React + Tailwind GUI — App shell, SetupWizard
-src/renderer/src/views/   Downloader and Settings screens
+src/main/queue/           job queue: probing, concurrency pump, per-item state
+src/renderer/src/views/   Queue (the main screen) and Settings
 src/renderer/src/strings.ts ALL user-visible copy; components must never hardcode text
 scripts/test-args.ts      offline assertions that settings reach the command line
 scripts/test-fetcher.ts   network test for the resume path
@@ -107,6 +109,14 @@ deliberately differ from the reference app.
 
 Newest first.
 
+- **2026-08-20 — The queue IS the app, not a feature of it.** First build was a
+  single-video form; the reference app is list-centred and that is the right
+  shape. Everything is a queue item now, including a lone link. *Why it matters:*
+  the single-item flow made batch use impossible and looked nothing like the
+  reference the user asked to build on.
+- **2026-08-20 — The queue never blocks on a modal.** A file collision inside a
+  batch resolves to keep-both automatically rather than stopping everything to
+  await a click. The prompt only appears for a deliberate single download.
 - **2026-08-20 — All UI copy lives in `src/renderer/src/strings.ts`.** Tizo ships
   English-only, but retrofitting i18n means touching every component whereas
   swapping one module does not. Components must never hardcode user-visible text.

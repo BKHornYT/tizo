@@ -1,6 +1,8 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { cancelSetup, getSetupPlan, installComponentFromFile, runSetup } from './setup'
 import { loadSettings, resetSettings, saveSettings } from './store/settings'
+import * as queue from './queue'
+import { resolveFfmpeg } from './engine/binaries'
 import type { Settings } from '../shared/types'
 import { engineStatus } from './engine/binaries'
 import { probe } from './engine/probe'
@@ -60,6 +62,39 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
     return installComponentFromFile(componentId, picked.filePaths[0])
   })
 
+  queue.onQueueChange((items) => {
+    const win = getWindow()
+    if (win && !win.isDestroyed()) win.webContents.send('queue:update', items)
+  })
+
+  ipcMain.handle('queue:list', () => queue.getQueue())
+
+  ipcMain.handle('queue:add', async (_e, text: unknown) => {
+    if (typeof text !== 'string') return []
+    const ffmpeg = await resolveFfmpeg()
+    return queue.addUrls(text, ffmpeg.found)
+  })
+
+  ipcMain.handle('queue:start', (_e, id: unknown) => {
+    if (typeof id === 'string') queue.start(id)
+  })
+
+  ipcMain.handle('queue:startAll', () => queue.startAll())
+  ipcMain.handle('queue:cancelAll', () => queue.cancelAllQueued())
+  ipcMain.handle('queue:clearFinished', () => queue.clearFinished())
+
+  ipcMain.handle('queue:cancel', (_e, id: unknown) => {
+    if (typeof id === 'string') queue.cancel(id)
+  })
+
+  ipcMain.handle('queue:remove', (_e, id: unknown) => {
+    if (typeof id === 'string') queue.remove(id)
+  })
+
+  ipcMain.handle('queue:setFormat', (_e, id: unknown, formatId: unknown) => {
+    if (typeof id === 'string' && typeof formatId === 'string') queue.setFormat(id, formatId)
+  })
+
   ipcMain.handle('settings:get', () => loadSettings())
 
   ipcMain.handle('settings:set', (_e, patch: unknown) =>
@@ -69,6 +104,10 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle('settings:reset', () => resetSettings())
 
   ipcMain.handle('paths:downloadDir', () => defaultDownloadDir())
+
+  ipcMain.handle('shell:openPath', async (_e, target: unknown) => {
+    if (typeof target === 'string' && target) await shell.openPath(target)
+  })
 
   ipcMain.handle('shell:reveal', (_e, target: unknown) => {
     if (typeof target === 'string' && target) shell.showItemInFolder(target)

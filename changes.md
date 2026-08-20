@@ -11,6 +11,36 @@ Newest first. One entry per change, using this format:
 
 ---
 
+## 2026-08-20 — Rebuilt the UI around a download queue
+**What:** Replaced the single-video form with a queue-centred UI, which is the shape
+the reference app uses and the part of it the first build missed entirely. New
+`src/main/queue/` owns item state, probing, and a concurrency pump that starts queued
+jobs up to the configured limit. The renderer is now `views/Queue.tsx` plus
+`components/QueueRow.tsx`: each row carries its own thumbnail, state, format dropdown
+(recommended list plus every raw format) and actions, with progress rendered as a
+fill behind the row rather than a separate bar. Added window-wide drag and drop,
+batch paste (any blob of text is scanned for links), download-all / stop-all /
+clear-finished, and an Open folder action in the header. Added a dev-only
+`scripts/install-essentials.ts` so a dev machine can skip the first-run wizard.
+**Why:** The user pointed out, correctly, that the visible app took nothing from the
+reference screenshots they supplied. The settings had been adopted; the *structure*
+had not, and structure is what you actually see.
+**Files:** src/main/queue/index.ts, src/main/ipc.ts, src/preload/index.ts,
+src/shared/types.ts, src/renderer/src/App.tsx, src/renderer/src/views/Queue.tsx,
+src/renderer/src/components/QueueRow.tsx, src/renderer/src/strings.ts,
+scripts/install-essentials.ts, CLAUDE.md, task.md
+(removed: src/renderer/src/views/Downloader.tsx)
+
+**Caught a bug while writing it:** the file-collision retry path inside the pump was
+passing a no-op progress callback, so any item that hit a collision would have sat
+frozen at 0% while downloading perfectly well underneath. The handler is now named
+and shared by both attempts.
+
+**Two departures from the reference, deliberate:** the queue never blocks on a modal
+(a collision mid-batch auto-renames rather than halting everything for a click), and
+format choice is per item rather than one global preference — their app makes you set
+a single download format for everything.
+
 ## 2026-08-20 — Phase 3: core GUI, settings, and site tuning
 **What:** Built the real UI and the settings layer behind it. New `engine/args.ts`
 turns settings plus per-site registry tuning into a yt-dlp command line; it is pure

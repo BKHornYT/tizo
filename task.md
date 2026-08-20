@@ -5,10 +5,15 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
 ## Now
 
 ### Phase 4 — Queue + playlists
-- [ ] Job queue with concurrency cap, pause/resume/retry, batch URL paste
+- [x] Job queue with concurrency cap, stop/retry, batch URL paste
+- [x] Drag & drop links anywhere on the window
+- [x] Download-all / stop-all / clear-finished
+- [x] Per-item format dropdown (recommended + all formats)
 - [ ] Playlist/channel expansion with per-item selection
-- [ ] Drag & drop links onto the window
-- [ ] Download-all / clear-list, sortable queue columns
+- [ ] Sortable queue columns
+
+Note: "pause" is stop + retry — yt-dlp resumes from its `.part` file, so a
+stopped download genuinely continues rather than restarting.
 
 ## Done this session
 

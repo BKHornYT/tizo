@@ -3,6 +3,7 @@ import type {
   EngineStatus,
   MediaInfo,
   ProgressEvent,
+  QueueItem,
   Result,
   Settings,
   SetupPlan,
@@ -42,6 +43,27 @@ const api = {
   download: (args: DownloadArgs): Promise<DownloadResult> =>
     ipcRenderer.invoke('engine:download', args),
 
+  queue: {
+    list: (): Promise<QueueItem[]> => ipcRenderer.invoke('queue:list'),
+    /** Accepts pasted text; every http(s) link inside it is queued. */
+    add: (text: string): Promise<string[]> => ipcRenderer.invoke('queue:add', text),
+    start: (id: string): Promise<void> => ipcRenderer.invoke('queue:start', id),
+    startAll: (): Promise<void> => ipcRenderer.invoke('queue:startAll'),
+    cancelAll: (): Promise<void> => ipcRenderer.invoke('queue:cancelAll'),
+    cancel: (id: string): Promise<void> => ipcRenderer.invoke('queue:cancel', id),
+    remove: (id: string): Promise<void> => ipcRenderer.invoke('queue:remove', id),
+    clearFinished: (): Promise<void> => ipcRenderer.invoke('queue:clearFinished'),
+    setFormat: (id: string, formatId: string): Promise<void> =>
+      ipcRenderer.invoke('queue:setFormat', id, formatId),
+    onUpdate: (handler: (items: QueueItem[]) => void): (() => void) => {
+      const listener = (_e: unknown, items: QueueItem[]): void => handler(items)
+      ipcRenderer.on('queue:update', listener)
+      return () => {
+        ipcRenderer.off('queue:update', listener)
+      }
+    }
+  },
+
   getSettings: (): Promise<Settings> => ipcRenderer.invoke('settings:get'),
 
   setSettings: (patch: Partial<Settings>): Promise<Settings> =>
@@ -76,6 +98,8 @@ const api = {
     ipcRenderer.invoke('dialog:pickFolder', current),
 
   reveal: (target: string): Promise<void> => ipcRenderer.invoke('shell:reveal', target),
+
+  openPath: (target: string): Promise<void> => ipcRenderer.invoke('shell:openPath', target),
 
   /** Returns an unsubscribe function — React effects must be able to clean up. */
   onProgress: (handler: (event: ProgressEvent) => void): (() => void) => {

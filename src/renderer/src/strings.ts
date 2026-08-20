@@ -23,6 +23,39 @@ export const strings = {
     portable: 'portable'
   },
 
+  queue: {
+    addPlaceholder: 'Paste one link, or many at once…',
+    add: 'Add',
+    heading: 'Queue',
+    dropHint: 'Drop links anywhere in the window',
+    dropActive: 'Release to add',
+    empty: 'Nothing queued yet',
+    emptyHint: 'Paste a link above, or drop one onto the window. Almost any video site works.',
+    downloadAll: 'Download all',
+    stopAll: 'Stop all',
+    clearFinished: 'Clear finished',
+    openOutput: 'Open folder',
+    count: (n: number) => `${n} ${n === 1 ? 'item' : 'items'}`,
+    activeCount: (n: number) => `${n} downloading`,
+    states: {
+      probing: 'Reading…',
+      ready: 'Ready',
+      queued: 'Queued',
+      downloading: 'Downloading',
+      processing: 'Merging…',
+      done: 'Done',
+      error: 'Failed',
+      cancelled: 'Stopped'
+    },
+    start: 'Download',
+    retry: 'Retry',
+    stop: 'Stop',
+    remove: 'Remove',
+    reveal: 'Show file',
+    allFormatsGroup: 'All formats',
+    bestGroup: 'Recommended'
+  },
+
   downloader: {
     placeholder: 'Paste a video link…',
     check: 'Check',
