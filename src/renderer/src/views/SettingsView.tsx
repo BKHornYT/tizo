@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react'
-import type { Container, EngineStatus, FileExistsRule, Settings } from '../../../shared/types'
+import type {
+  Container,
+  EngineStatus,
+  FileExistsRule,
+  Settings,
+  UpdateState
+} from '../../../shared/types'
 import { strings } from '../strings'
 
 const SPEED_PRESETS: Array<{ label: string; value: number | null }> = [
@@ -22,9 +28,13 @@ export default function SettingsView({
   onChanged?: () => void
 }): React.JSX.Element {
   const [settings, setSettings] = useState<Settings | null>(null)
+  const [update, setUpdate] = useState<UpdateState | null>(null)
+  const [checking, setChecking] = useState(false)
 
   useEffect(() => {
     void window.tizo.getSettings().then(setSettings)
+    void window.tizo.updates.state().then(setUpdate)
+    return window.tizo.updates.onChange(setUpdate)
   }, [])
 
   const patch = async (change: Partial<Settings>): Promise<void> => {
@@ -36,11 +46,11 @@ export default function SettingsView({
   if (!settings) return <div />
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-8 pb-12">
-      <Group>
+    <div className="mx-auto flex max-w-2xl flex-col gap-6 pb-12">
+      <Group title={strings.settings.title}>
         <Row label={strings.settings.outputDir} hint={strings.settings.outputDirHint}>
           <div className="flex items-center gap-2">
-            <code className="min-w-0 flex-1 truncate rounded-md bg-ink-800 px-3 py-2 font-mono text-xs text-white/60">
+            <code className="min-w-0 flex-1 truncate rounded-md bg-ink-900/6 px-3 py-2 font-mono text-xs text-ink-700">
               {settings.outputDir}
             </code>
             <button
@@ -49,7 +59,7 @@ export default function SettingsView({
                   if (dir) void patch({ outputDir: dir })
                 })
               }
-              className="shrink-0 rounded-md border border-white/10 px-3 py-2 text-xs text-white/60 hover:bg-white/5"
+              className="shrink-0 rounded-md bg-brand-500 px-3 py-2 text-xs font-medium text-white transition hover:bg-brand-400"
             >
               {strings.downloader.change}
             </button>
@@ -87,9 +97,7 @@ export default function SettingsView({
             options={[1, 2, 3, 4, 5, 6].map((n) => ({ value: String(n), label: String(n) }))}
           />
         </Row>
-      </Group>
 
-      <Group>
         <Toggle
           label={strings.settings.folderPerDownload}
           hint={strings.settings.folderPerDownloadHint}
@@ -104,10 +112,46 @@ export default function SettingsView({
         />
       </Group>
 
-      <Group>
-        <h3 className="text-xs font-medium tracking-wide text-white/40 uppercase">
-          {strings.settings.components}
-        </h3>
+      <Group title={strings.settings.updates}>
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-ink-700">{strings.settings.appVersion}</span>
+          <span className="font-mono text-xs text-ink-500">
+            {update ? strings.update.version(update.app.currentVersion) : '—'}
+          </span>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-ink-700">{strings.settings.engineVersion}</span>
+          <span className="font-mono text-xs text-ink-500">
+            {update?.engine.status === 'updating'
+              ? strings.update.engineUpdating
+              : (update?.engine.currentVersion ?? status?.ytdlp.version ?? '—')}
+          </span>
+        </div>
+
+        <p className="text-xs leading-relaxed text-ink-500">
+          {update?.app.reason === 'dev'
+            ? strings.update.devNote
+            : update?.app.reason === 'portable'
+              ? strings.update.portableNote
+              : strings.settings.updatesHint}
+        </p>
+
+        <div>
+          <button
+            onClick={() => {
+              setChecking(true)
+              void window.tizo.updates.check().finally(() => setChecking(false))
+            }}
+            disabled={checking}
+            className="rounded-md bg-brand-500 px-4 py-2 text-xs font-medium text-white transition enabled:hover:bg-brand-400 disabled:opacity-40"
+          >
+            {checking ? strings.update.checking : strings.update.check}
+          </button>
+        </div>
+      </Group>
+
+      <Group title={strings.settings.components}>
         <ComponentRow
           name="Download engine (yt-dlp)"
           version={status?.ytdlp.version ?? null}
@@ -118,9 +162,9 @@ export default function SettingsView({
           version={status?.ffmpeg.version ?? null}
           installed={status?.ffmpeg.found ?? false}
         />
-        <div className="pt-2">
-          <p className="text-xs text-white/30">{strings.settings.dataLocation}</p>
-          <code className="mt-1 block truncate font-mono text-[11px] text-white/40">
+        <div className="pt-1">
+          <p className="text-xs text-ink-500">{strings.settings.dataLocation}</p>
+          <code className="mt-1 block truncate font-mono text-[11px] text-ink-400">
             {status?.dataDir ?? '—'}
           </code>
         </div>
@@ -129,7 +173,7 @@ export default function SettingsView({
       <div>
         <button
           onClick={() => void window.tizo.resetSettings().then(setSettings)}
-          className="rounded-md border border-white/10 px-4 py-2 text-xs text-white/50 hover:bg-white/5 hover:text-white/80"
+          className="rounded-md bg-white/60 px-4 py-2 text-xs text-ink-700 transition hover:bg-white"
         >
           {strings.settings.reset}
         </button>
@@ -138,9 +182,16 @@ export default function SettingsView({
   )
 }
 
-function Group({ children }: { children: React.ReactNode }): React.JSX.Element {
+function Group({
+  title,
+  children
+}: {
+  title: string
+  children: React.ReactNode
+}): React.JSX.Element {
   return (
-    <section className="flex flex-col gap-5 rounded-xl border border-white/10 bg-ink-900 p-5">
+    <section className="flex flex-col gap-4 rounded-xl border border-surface-line bg-surface p-5 shadow-sm backdrop-blur-sm">
+      <h3 className="text-xs font-semibold tracking-wide text-ink-700 uppercase">{title}</h3>
       {children}
     </section>
   )
@@ -157,9 +208,9 @@ function Row({
 }): React.JSX.Element {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-sm text-white/80">{label}</label>
+      <label className="text-sm font-medium text-ink-900">{label}</label>
       {children}
-      <p className="text-xs text-white/30">{hint}</p>
+      <p className="text-xs text-ink-500">{hint}</p>
     </div>
   )
 }
@@ -177,10 +228,10 @@ function Select({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="rounded-md border border-white/10 bg-ink-800 px-3 py-2 text-sm text-white/80 outline-none focus:border-accent-500"
+      className="rounded-md bg-brand-500 px-3 py-2 text-sm font-medium text-white outline-none hover:bg-brand-400"
     >
       {options.map((o) => (
-        <option key={o.value} value={o.value} className="bg-ink-800">
+        <option key={o.value} value={o.value} className="bg-white text-ink-900">
           {o.label}
         </option>
       ))}
@@ -208,18 +259,18 @@ function Toggle({
     >
       <span
         className={`mt-0.5 flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition ${
-          checked ? 'bg-accent-500' : 'bg-white/10'
+          checked ? 'bg-brand-500' : 'bg-ink-900/15'
         }`}
       >
         <span
-          className={`h-4 w-4 rounded-full bg-white transition-transform ${
+          className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
             checked ? 'translate-x-4' : ''
           }`}
         />
       </span>
       <span className="min-w-0">
-        <span className="block text-sm text-white/80">{label}</span>
-        <span className="mt-0.5 block text-xs text-white/30">{hint}</span>
+        <span className="block text-sm font-medium text-ink-900">{label}</span>
+        <span className="mt-0.5 block text-xs text-ink-500">{hint}</span>
       </span>
     </button>
   )
@@ -236,10 +287,8 @@ function ComponentRow({
 }): React.JSX.Element {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-sm text-white/70">{name}</span>
-      <span
-        className={`font-mono text-xs ${installed ? 'text-emerald-300/70' : 'text-amber-300/70'}`}
-      >
+      <span className="text-sm text-ink-700">{name}</span>
+      <span className={`font-mono text-xs ${installed ? 'text-emerald-700' : 'text-amber-700'}`}>
         {installed ? (version ?? strings.settings.installed) : strings.settings.notInstalled}
       </span>
     </div>

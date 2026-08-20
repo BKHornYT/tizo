@@ -11,6 +11,33 @@ Newest first. One entry per change, using this format:
 
 ---
 
+## 2026-08-20 — Visual language, paste-anywhere input, and the update system
+**What:** Three things the user asked for. (1) Restyled to match the reference app's
+look rather than only its structure: dark navy chrome top and bottom, an
+orange→violet→blue gradient behind the content, purple accents, and an
+icon-over-label toolbar (Add link / Downloads / Sorting / Options / Open output) with
+inline SVG glyphs. Sorting is now real, closing the last Phase 4 item. (2) Removed
+the paste input entirely — Ctrl+V anywhere in the window queues links, with a toast
+confirming what was added, plus the toolbar button reading the system clipboard.
+(3) Built the update system: `src/main/update/` wires electron-updater (launch +
+6-hourly, installs on quit so it cannot kill downloads mid-flight) and a separate
+weekly yt-dlp channel that replaces only the managed binary. Version shows in the
+toolbar and is clickable to check; Settings gained an Updates section.
+**Why:** The user pointed out the UI took nothing visual from their screenshots, asked
+for paste-to-add instead of a field, and expected the updater to already exist.
+**Files:** src/renderer/src/index.css, App.tsx, strings.ts, views/{Queue,SettingsView}.tsx,
+components/{Icon,QueueRow,PlaylistPicker}.tsx, SetupWizard.tsx, src/main/update/index.ts,
+src/main/ipc.ts, src/preload/index.ts, src/shared/types.ts, CLAUDE.md, task.md
+
+**Verified visually for the first time.** Screen capture had been returning solid
+black; the cause was GPU compositing, and `--disable-gpu` fixes it. Now recorded in
+Gotchas. The toolbar, gradient, empty state and bottom bar all render as intended.
+
+**Honest status on updates:** the wiring is complete and self-update is explicitly
+disabled with a stated reason in dev and portable builds rather than silently doing
+nothing — but it has never run against a real release, because nothing has been
+packaged yet. That proof needs Phase 8.
+
 ## 2026-08-20 — Documentation pass; removed an orphaned component
 **What:** Brought every `.md` back in line with the code. `docs/plan.md` got a real
 architecture tree (it still described folders that had since gained structure), a

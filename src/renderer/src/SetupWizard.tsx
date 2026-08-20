@@ -44,12 +44,12 @@ export default function SetupWizard({
   const pct = progress?.overallPercent ?? 0
 
   return (
-    <div className="flex h-full items-center justify-center px-8">
+    <div className="app-gradient flex h-full items-center justify-center px-8">
       <div className="w-full max-w-lg">
-        <h1 className="text-2xl font-semibold tracking-tight text-white">
-          {strings.setup.title} <span className="text-accent-400">{strings.app.short}</span>
+        <h1 className="text-2xl font-semibold tracking-tight text-ink-900">
+          {strings.setup.title} <span className="text-brand-600">{strings.app.short}</span>
         </h1>
-        <p className="mt-2 text-sm leading-relaxed text-white/50">
+        <p className="mt-2 text-sm leading-relaxed text-ink-700">
           {strings.setup.intro}
         </p>
 
@@ -57,20 +57,20 @@ export default function SetupWizard({
           {plan.components.map((c) => (
             <li
               key={c.id}
-              className="flex items-center justify-between rounded-lg border border-white/10 bg-ink-900 px-4 py-3"
+              className="flex items-center justify-between rounded-lg border border-surface-line bg-surface px-4 py-3 shadow-sm backdrop-blur-sm"
             >
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-white/90">{c.name}</span>
+                  <span className="text-sm font-medium text-ink-900">{c.name}</span>
                   {c.installed && (
-                    <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-300">
+                    <span className="rounded bg-emerald-600/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-800">
                       {strings.setup.installedBadge}
                     </span>
                   )}
                 </div>
-                <p className="mt-0.5 truncate text-xs text-white/40">{c.summary}</p>
+                <p className="mt-0.5 truncate text-xs text-ink-500">{c.summary}</p>
               </div>
-              <span className="shrink-0 pl-4 font-mono text-xs text-white/40">
+              <span className="shrink-0 pl-4 font-mono text-xs text-ink-500">
                 {bytes(c.size)}
               </span>
             </li>
@@ -80,19 +80,19 @@ export default function SetupWizard({
         {running || progress?.phase === 'running' ? (
           <div className="mt-6">
             <div className="flex items-baseline justify-between text-sm">
-              <span className="text-white/80">
+              <span className="font-medium text-ink-900">
                 {progress?.stage ? strings.setup.stages[progress.stage] : strings.setup.starting}
                 {progress?.componentName ? ` ${progress.componentName}` : ''}
               </span>
-              <span className="font-mono text-xs text-white/40">{pct.toFixed(0)}%</span>
+              <span className="font-mono text-xs text-ink-500">{pct.toFixed(0)}%</span>
             </div>
-            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/5">
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-ink-900/10">
               <div
-                className="h-full bg-accent-500 transition-[width] duration-200"
+                className="h-full bg-brand-500 transition-[width] duration-200"
                 style={{ width: `${pct}%` }}
               />
             </div>
-            <div className="mt-2 flex justify-between font-mono text-xs text-white/30">
+            <div className="mt-2 flex justify-between font-mono text-xs text-ink-500">
               <span>
                 {bytes(progress?.receivedBytes ?? 0)} {strings.progress.of}{' '}
                 {bytes(progress?.totalBytes ?? 0)}
@@ -101,7 +101,7 @@ export default function SetupWizard({
             </div>
             <button
               onClick={() => void window.tizo.cancelSetup()}
-              className="mt-4 text-xs text-white/30 underline-offset-4 hover:text-white/60 hover:underline"
+              className="mt-4 text-xs text-ink-500 underline-offset-4 hover:text-ink-900 hover:underline"
             >
               {strings.setup.cancel}
             </button>
@@ -110,41 +110,41 @@ export default function SetupWizard({
           <div className="mt-6">
             <button
               onClick={start}
-              className="w-full rounded-lg bg-accent-500 px-5 py-3 text-sm font-medium text-white transition hover:bg-accent-400"
+              className="w-full rounded-lg bg-brand-500 px-5 py-3 text-sm font-medium text-white shadow-sm transition hover:bg-brand-400"
             >
               {strings.setup.start} — {bytes(plan.totalBytes)}
             </button>
-            <p className="mt-3 text-center text-xs text-white/25">
+            <p className="mt-3 text-center text-xs text-ink-500">
               {strings.setup.resumeNote}
             </p>
           </div>
         )}
 
         {error && (
-          <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3">
-            <p className="text-sm text-red-200">{error}</p>
+          <div className="mt-4 rounded-xl border border-red-600/25 bg-red-50/80 px-4 py-3">
+            <p className="text-sm text-red-800">{error}</p>
             <div className="mt-3 flex gap-2">
               <button
                 onClick={start}
-                className="rounded-md border border-white/10 px-3 py-1.5 text-xs text-white/70 hover:bg-white/5"
+                className="rounded-md bg-white/70 px-3 py-1.5 text-xs text-ink-700 hover:bg-white"
               >
                 {strings.setup.retry}
               </button>
               <button
                 onClick={() => void manual()}
-                className="rounded-md border border-white/10 px-3 py-1.5 text-xs text-white/70 hover:bg-white/5"
+                className="rounded-md bg-white/70 px-3 py-1.5 text-xs text-ink-700 hover:bg-white"
               >
                 {strings.setup.manual}
               </button>
             </div>
-            <p className="mt-2 text-[11px] leading-relaxed text-red-300/40">
+            <p className="mt-2 text-[11px] leading-relaxed text-red-700/70">
               {strings.setup.manualHint}
             </p>
           </div>
         )}
 
         {plan.manifestSource !== 'remote' && (
-          <p className="mt-4 text-center text-[11px] text-amber-300/50">
+          <p className="mt-4 text-center text-[11px] text-amber-800">
             {strings.setup.offlineRegistry(plan.manifestSource)}
           </p>
         )}

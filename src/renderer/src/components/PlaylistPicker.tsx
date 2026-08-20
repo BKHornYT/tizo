@@ -32,13 +32,13 @@ export default function PlaylistPicker({
     })
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-8 py-10">
-      <div className="flex max-h-full w-full max-w-2xl flex-col rounded-xl border border-white/10 bg-ink-900">
-        <header className="shrink-0 border-b border-white/10 px-5 py-4">
-          <h3 className="font-medium text-white/90">{strings.queue.selectTitle}</h3>
-          <p className="mt-0.5 truncate text-sm text-white/40">{playlist.title}</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-chrome-900/60 px-8 py-10">
+      <div className="flex max-h-full w-full max-w-2xl flex-col rounded-xl border border-surface-line bg-white">
+        <header className="shrink-0 border-b border-surface-line px-5 py-4">
+          <h3 className="font-semibold text-ink-900">{strings.queue.selectTitle}</h3>
+          <p className="mt-0.5 truncate text-sm text-ink-500">{playlist.title}</p>
           {playlist.entries.length < playlist.count && (
-            <p className="mt-1 text-xs text-amber-300/60">
+            <p className="mt-1 text-xs text-amber-700">
               {strings.queue.capped(playlist.entries.length)}
             </p>
           )}
@@ -59,24 +59,24 @@ export default function PlaylistPicker({
               <li key={entry.url}>
                 <button
                   onClick={() => toggle(entry.url)}
-                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition hover:bg-white/5"
+                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition hover:bg-ink-900/5"
                 >
                   <span
                     className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] ${
                       checked
-                        ? 'border-accent-500 bg-accent-500 text-white'
-                        : 'border-white/20 text-transparent'
+                        ? 'border-brand-500 bg-brand-500 text-white'
+                        : 'border-ink-900/25 text-transparent'
                     }`}
                   >
                     ✓
                   </span>
-                  <span className="w-6 shrink-0 text-right font-mono text-xs text-white/25">
+                  <span className="w-6 shrink-0 text-right font-mono text-xs text-ink-400">
                     {index + 1}
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-sm text-white/80">
+                  <span className="min-w-0 flex-1 truncate text-sm text-ink-900">
                     {entry.title}
                   </span>
-                  <span className="shrink-0 font-mono text-xs text-white/30">
+                  <span className="shrink-0 font-mono text-xs text-ink-500">
                     {duration(entry.duration)}
                   </span>
                 </button>
@@ -85,17 +85,17 @@ export default function PlaylistPicker({
           })}
         </ul>
 
-        <footer className="flex shrink-0 justify-end gap-2 border-t border-white/10 px-5 py-3">
+        <footer className="flex shrink-0 justify-end gap-2 border-t border-surface-line px-5 py-3">
           <button
             onClick={onCancel}
-            className="rounded-md border border-white/10 px-3 py-2 text-xs text-white/60 hover:bg-white/5"
+            className="rounded-md bg-ink-900/8 px-3 py-2 text-xs text-ink-700 hover:bg-ink-900/15"
           >
             {strings.queue.cancel}
           </button>
           <button
             onClick={() => onAdd([...selected])}
             disabled={selected.size === 0}
-            className="rounded-md bg-accent-500 px-4 py-2 text-xs font-medium text-white transition enabled:hover:bg-accent-400 disabled:opacity-30"
+            className="rounded-md bg-brand-500 px-4 py-2 text-xs font-medium text-white transition enabled:hover:bg-brand-400 disabled:opacity-30"
           >
             {strings.queue.addSelected(selected.size)}
           </button>
@@ -115,7 +115,7 @@ function MiniButton({
   return (
     <button
       onClick={onClick}
-      className="rounded-md border border-white/10 px-2.5 py-1 text-xs text-white/50 hover:bg-white/5 hover:text-white/80"
+      className="rounded-md bg-ink-900/8 px-2.5 py-1 text-xs text-ink-700 hover:bg-ink-900/15"
     >
       {children}
     </button>

@@ -1,7 +1,8 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron'
 import { cancelSetup, getSetupPlan, installComponentFromFile, runSetup } from './setup'
 import { loadSettings, resetSettings, saveSettings } from './store/settings'
 import * as queue from './queue'
+import { checkAppUpdate, checkEngineUpdate, getUpdateState, initUpdates, installNow } from './update'
 import { resolveFfmpeg } from './engine/binaries'
 import type { Settings } from '../shared/types'
 import { engineStatus } from './engine/binaries'
@@ -66,6 +67,20 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
     const win = getWindow()
     if (win && !win.isDestroyed()) win.webContents.send('queue:update', items)
   })
+
+  initUpdates((state) => {
+    const win = getWindow()
+    if (win && !win.isDestroyed()) win.webContents.send('update:state', state)
+  })
+
+  ipcMain.handle('update:state', () => getUpdateState())
+  ipcMain.handle('update:check', async () => {
+    await Promise.all([checkAppUpdate(), checkEngineUpdate(true)])
+    return getUpdateState()
+  })
+  ipcMain.handle('update:install', () => installNow())
+
+  ipcMain.handle('clipboard:read', () => clipboard.readText())
 
   ipcMain.handle('queue:list', () => queue.getQueue())
 

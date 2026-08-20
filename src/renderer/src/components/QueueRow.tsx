@@ -21,24 +21,22 @@ export default function QueueRow({
   const blocked = Boolean(format?.needsFfmpeg) && !hasFfmpeg
 
   return (
-    <li className="relative overflow-hidden rounded-xl border border-white/10 bg-ink-900">
+    <li className="relative overflow-hidden rounded-xl border border-surface-line bg-surface shadow-sm backdrop-blur-sm">
       {/* Progress reads as a fill behind the row rather than a separate bar —
           the row itself is the thing making progress. */}
       {active && (
         <div
-          className="absolute inset-y-0 left-0 bg-accent-500/10 transition-[width] duration-300"
+          className="absolute inset-y-0 left-0 bg-brand-500/18 transition-[width] duration-300"
           style={{ width: `${pct}%` }}
         />
       )}
 
-      <div className="relative flex items-center gap-4 p-3">
+      <div className="relative flex items-center gap-3.5 p-2.5">
         <Thumb item={item} />
 
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm text-white/90">
-            {item.title ?? item.url}
-          </p>
-          <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-white/40">
+          <p className="truncate text-sm font-medium text-ink-900">{item.title ?? item.url}</p>
+          <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-ink-500">
             <StateLabel item={item} />
             {item.playlist && (
               <span>
@@ -49,7 +47,7 @@ export default function QueueRow({
             {item.duration !== null && <span>· {duration(item.duration)}</span>}
           </p>
           {item.state === 'error' && item.error && (
-            <p className="mt-1 truncate text-xs text-red-300/80">{item.error.message}</p>
+            <p className="mt-1 truncate text-xs text-red-700">{item.error.message}</p>
           )}
         </div>
 
@@ -59,10 +57,10 @@ export default function QueueRow({
           item.state !== 'done' && <FormatSelect item={item} hasFfmpeg={hasFfmpeg} />}
 
         {active && (
-          <div className="shrink-0 text-right font-mono text-xs text-white/50">
-            <div>{pct.toFixed(0)}%</div>
+          <div className="shrink-0 text-right font-mono text-xs text-ink-700">
+            <div className="font-semibold">{pct.toFixed(0)}%</div>
             {item.state === 'downloading' && (
-              <div className="text-white/30">{speed(item.speed)}</div>
+              <div className="text-ink-500">{speed(item.speed)}</div>
             )}
           </div>
         )}
@@ -79,13 +77,13 @@ function Thumb({ item }: { item: QueueItem }): React.JSX.Element {
       <img
         src={item.thumbnail}
         alt=""
-        className="h-11 w-20 shrink-0 rounded-md object-cover"
+        className="h-11 w-20 shrink-0 rounded-md object-cover shadow-sm"
       />
     )
   }
   return (
     <div
-      className={`h-11 w-20 shrink-0 rounded-md bg-white/5 ${
+      className={`h-11 w-20 shrink-0 rounded-md bg-ink-900/8 ${
         item.state === 'probing' ? 'animate-pulse' : ''
       }`}
     />
@@ -95,12 +93,12 @@ function Thumb({ item }: { item: QueueItem }): React.JSX.Element {
 function StateLabel({ item }: { item: QueueItem }): React.JSX.Element {
   const tone =
     item.state === 'done'
-      ? 'text-emerald-300/80'
+      ? 'text-emerald-700 font-medium'
       : item.state === 'error'
-        ? 'text-red-300/80'
+        ? 'text-red-700 font-medium'
         : item.state === 'downloading' || item.state === 'processing'
-          ? 'text-accent-400/90'
-          : 'text-white/40'
+          ? 'text-brand-600 font-medium'
+          : 'text-ink-500'
 
   const detail =
     item.state === 'downloading' && item.totalBytes
@@ -128,20 +126,20 @@ function FormatSelect({
     <select
       value={item.formatId ?? ''}
       onChange={(e) => void window.tizo.queue.setFormat(item.id, e.target.value)}
-      className="max-w-[11rem] shrink-0 rounded-md border border-white/10 bg-ink-800 px-2 py-1.5 text-xs text-white/70 outline-none focus:border-accent-500"
+      className="max-w-[10.5rem] shrink-0 rounded-md bg-brand-500 px-2.5 py-1.5 text-xs font-medium text-white shadow-sm outline-none hover:bg-brand-400"
     >
-      <optgroup label={strings.queue.bestGroup}>
+      <optgroup label={strings.queue.bestGroup} className="bg-white text-ink-900">
         {item.formats.map((f) => (
-          <option key={f.id} value={f.id} className="bg-ink-800">
+          <option key={f.id} value={f.id} className="bg-white text-ink-900">
             {f.label}
             {f.needsFfmpeg && !hasFfmpeg ? ' ⚠' : ''}
           </option>
         ))}
       </optgroup>
       {item.allFormats.length > 0 && (
-        <optgroup label={strings.queue.allFormatsGroup}>
+        <optgroup label={strings.queue.allFormatsGroup} className="bg-white text-ink-900">
           {item.allFormats.map((f) => (
-            <option key={f.id} value={f.id} className="bg-ink-800">
+            <option key={f.id} value={f.id} className="bg-white text-ink-900">
               {f.label}
               {f.needsFfmpeg && !hasFfmpeg ? ' ⚠' : ''}
             </option>
@@ -171,7 +169,10 @@ function Actions({
           <Action
             primary
             onClick={() =>
-              void q.expand(item.id, (item.playlist?.entries ?? []).map((e) => e.url))
+              void q.expand(
+                item.id,
+                (item.playlist?.entries ?? []).map((e) => e.url)
+              )
             }
           >
             {strings.queue.addAll}
@@ -201,7 +202,7 @@ function Actions({
       )}
 
       {item.state === 'done' && item.outputPath && (
-        <Action onClick={() => void window.tizo.reveal(item.outputPath!)}>
+        <Action onClick={() => item.outputPath && void window.tizo.reveal(item.outputPath)}>
           {strings.queue.reveal}
         </Action>
       )}
@@ -210,7 +211,7 @@ function Actions({
         onClick={() => void q.remove(item.id)}
         title={strings.queue.remove}
         aria-label={strings.queue.remove}
-        className="rounded-md px-2 py-1.5 text-white/25 transition hover:bg-white/5 hover:text-white/70"
+        className="rounded-md px-2 py-1.5 text-ink-400 transition hover:bg-ink-900/8 hover:text-ink-900"
       >
         ✕
       </button>
@@ -236,10 +237,10 @@ function Action({
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className={`rounded-md px-3 py-1.5 text-xs transition disabled:opacity-30 ${
+      className={`rounded-md px-3 py-1.5 text-xs font-medium shadow-sm transition disabled:opacity-40 ${
         primary
-          ? 'bg-accent-500 font-medium text-white enabled:hover:bg-accent-400'
-          : 'border border-white/10 text-white/60 enabled:hover:bg-white/5'
+          ? 'bg-brand-500 text-white enabled:hover:bg-brand-400'
+          : 'bg-white/70 text-ink-700 enabled:hover:bg-white'
       }`}
     >
       {children}

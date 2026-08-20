@@ -4,17 +4,28 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
 
 ## Now
 
-### Phase 4 — Queue + playlists (nearly done)
+### Phase 4 — Queue + playlists ✅ complete
 - [x] Job queue with concurrency cap, stop/retry, batch URL paste
 - [x] Drag & drop links anywhere on the window
 - [x] Download-all / stop-all / clear-finished
 - [x] Per-item format dropdown (recommended + every raw format)
 - [x] Playlist/channel expansion with a per-item picker
-- [ ] Sortable queue columns
+- [x] Sorting (order added / title / size / status) via the toolbar
 
 > There is no "pause". yt-dlp resumes from its `.part` file, so Stop + Retry
 > genuinely continues a transfer rather than restarting it — a separate pause
 > concept would just be a second name for the same thing.
+
+### Visual + updates pass (brought forward from Phases 8–9)
+- [x] Visual language matched to the reference app — navy chrome, gradient,
+      purple accents, icon-over-label toolbar
+- [x] Paste anywhere to add links; no dedicated input field
+- [x] App version shown in the toolbar, clickable to check for updates
+- [x] `electron-updater` wired: launch + 6-hourly checks, install on quit
+- [x] Weekly yt-dlp engine channel, independent of app releases
+- [x] Self-update disabled with a stated reason in dev and portable builds
+- [ ] **Unproven:** auto-update has never run against a real release — needs
+      Phase 8 packaging first
 
 ## Next
 

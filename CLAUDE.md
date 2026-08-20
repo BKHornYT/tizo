@@ -38,12 +38,15 @@ file — and a week later gets a bugfix without doing anything.
   picker with an inline all-formats expander, speed limit, geo-bypass,
   folder-per-download, container choice and file-collision handling, and a
   queue-centred UI with concurrency, drag-and-drop, batch paste, and playlist and
-  channel expansion with a per-item picker
-- **In progress:** Phase 4 nearly done — only sortable queue columns remain
+  channel expansion with a per-item picker, queue sorting, paste-anywhere input,
+  and the update system (app + engine channels, version shown in the toolbar)
+- **In progress:** Phase 5 — audio extraction and subtitles
 - **Known broken / not started:** no audio extraction or subtitles (Phase 5), no
-  clipboard watcher, history or tray (Phase 6), no playlist monitoring (6.5), no
-  optional addon gates (7), no icons or built installers (8), no release pipeline
-  or auto-update (9). The app has never been packaged — only run via `npm run dev`
+  clipboard *watcher* or history or tray (Phase 6), no playlist monitoring (6.5),
+  no optional addon gates (7), no icons or built installers (8), no CI release
+  pipeline (9). **The app has never been packaged** — only run via `npm run dev`,
+  so auto-update is wired but unproven end to end; it needs a real signed-ish
+  release to test against.
 
 ## Stack
 
@@ -93,6 +96,7 @@ src/main/engine/           binaries, probe (incl. playlists), download, error cl
 src/main/queue/            item state, probing, concurrency pump, playlist expansion
 src/main/components/       fetch (resumable) + verify + unzip — powers setup AND addons
 src/main/setup/            first-run orchestration and on-disk setup state
+src/main/update/           electron-updater + the weekly yt-dlp engine channel
 src/main/store/settings.ts persisted settings, validated field-by-field on read
 
 src/preload/index.ts       contextBridge; the ONLY main↔renderer surface
@@ -100,7 +104,7 @@ src/shared/types.ts        types shared across main, preload and renderer
 
 src/renderer/src/App.tsx   shell: setup gate, tabs, status pills
 src/renderer/src/views/    Queue (the main screen) and SettingsView
-src/renderer/src/components/  QueueRow, PlaylistPicker
+src/renderer/src/components/  QueueRow, PlaylistPicker, Icon
 src/renderer/src/strings.ts   ALL user-visible copy; never hardcode text in a component
 
 scripts/test-args.ts       offline assertions that settings reach the command line
@@ -123,6 +127,18 @@ deliberately differ from the reference app.
 
 Newest first.
 
+- **2026-08-20 — Visual language copied from the reference app.** Dark navy chrome
+  top and bottom, an orange→violet→blue gradient behind the content, purple accents,
+  icon-over-label toolbar. Structure alone was not enough — the user supplied
+  screenshots for the *look*, and taking only the feature list missed the point.
+- **2026-08-20 — No paste field; pasting anywhere adds links.** Ctrl+V is handled
+  on the window, so there is no input to click into first. Matches the reference's
+  "copy a URL and it appears" behaviour and is the shortest path from finding a
+  video to queueing it.
+- **2026-08-20 — Update system built before packaging.** Three channels as planned:
+  app via electron-updater (launch + 6 h), yt-dlp weekly from its own repo, registry
+  on demand. Self-update is explicitly disabled with a stated reason in dev and in
+  portable builds, rather than silently doing nothing.
 - **2026-08-20 — The queue IS the app, not a feature of it.** First build was a
   single-video form; the reference app is list-centred and that is the right
   shape. Everything is a queue item now, including a lone link. *Why it matters:*
@@ -200,6 +216,9 @@ Newest first.
   from `'./index'` resolved to *itself*, silently killing the `Window.tizo` type.
   Global declarations live in `src/renderer/src/env.d.ts` instead.
 - **TypeScript 6 removed `baseUrl`.** Path aliases must be relative (`./src/...`).
+- **Screen capture of the window comes out black under GPU compositing.** Launch
+  with `--disable-gpu` when a screenshot is needed, or the image is solid black
+  with no error.
 - **`ffprobe` takes `-version`, not `--version`.** The ffmpeg family uses one
   dash, yt-dlp uses two. Guessing the flag from a filename prefix made every HQ
   Pack install fail at the final execution check with a message blaming

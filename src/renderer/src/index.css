@@ -1,12 +1,30 @@
 @import 'tailwindcss';
 
+/**
+ * Visual language follows the reference app: dark navy chrome top and bottom,
+ * a warm-to-cool gradient behind the content, purple accents.
+ */
 @theme {
-  --color-ink-950: #0b0d12;
-  --color-ink-900: #11141c;
-  --color-ink-800: #1a1f2b;
-  --color-ink-700: #262d3d;
-  --color-accent-400: #6ea8fe;
-  --color-accent-500: #3b82f6;
+  /* Toolbar and bottom bar */
+  --color-chrome-900: #1e2138;
+  --color-chrome-800: #272b47;
+  --color-chrome-700: #343959;
+
+  /* Purple accent, lifted from their button colour */
+  --color-brand-600: #8b2fbe;
+  --color-brand-500: #a13fd0;
+  --color-brand-400: #b95ce4;
+
+  /* Content sits on the gradient, so surfaces are translucent white. */
+  --color-surface: rgb(255 255 255 / 0.78);
+  --color-surface-strong: rgb(255 255 255 / 0.94);
+  --color-surface-line: rgb(40 30 70 / 0.12);
+
+  /* Text on the light gradient */
+  --color-ink-900: #23263a;
+  --color-ink-700: #414765;
+  --color-ink-500: #6b7190;
+  --color-ink-400: #878ca8;
 }
 
 html,
@@ -17,12 +35,42 @@ body,
 
 body {
   margin: 0;
-  background: var(--color-ink-950);
-  color: #e6e9ef;
+  color: var(--color-ink-900);
   font-family:
     'Segoe UI Variable Display', 'Segoe UI', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   /* The whole app is a fixed-size shell; only inner panes scroll. */
   overflow: hidden;
   user-select: none;
+  background: var(--color-chrome-900);
+}
+
+/**
+ * The gradient is painted on a fixed layer rather than on `body`, so scrolling a
+ * long queue does not drag the colours with it.
+ */
+.app-gradient {
+  background:
+    radial-gradient(120% 90% at 0% 0%, #f0a868 0%, transparent 55%),
+    radial-gradient(120% 90% at 100% 100%, #6f9fd8 0%, transparent 55%),
+    linear-gradient(140deg, #e6b892 0%, #b9a4dc 45%, #8fb2de 100%);
+}
+
+/* Scrollbars, so a pale pane does not get a heavy default bar. */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgb(40 30 70 / 0.2);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgb(40 30 70 / 0.35);
+  background-clip: content-box;
 }

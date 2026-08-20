@@ -5,6 +5,7 @@ import type {
   ProgressEvent,
   QueueItem,
   Result,
+  UpdateState,
   Settings,
   SetupPlan,
   SetupProgress
@@ -42,6 +43,21 @@ const api = {
 
   download: (args: DownloadArgs): Promise<DownloadResult> =>
     ipcRenderer.invoke('engine:download', args),
+
+  readClipboard: (): Promise<string> => ipcRenderer.invoke('clipboard:read'),
+
+  updates: {
+    state: (): Promise<UpdateState> => ipcRenderer.invoke('update:state'),
+    check: (): Promise<UpdateState> => ipcRenderer.invoke('update:check'),
+    install: (): Promise<void> => ipcRenderer.invoke('update:install'),
+    onChange: (handler: (state: UpdateState) => void): (() => void) => {
+      const listener = (_e: unknown, state: UpdateState): void => handler(state)
+      ipcRenderer.on('update:state', listener)
+      return () => {
+        ipcRenderer.off('update:state', listener)
+      }
+    }
+  },
 
   queue: {
     list: (): Promise<QueueItem[]> => ipcRenderer.invoke('queue:list'),

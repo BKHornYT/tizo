@@ -17,6 +17,37 @@ export const strings = {
     back: 'Back'
   },
 
+  update: {
+    version: (v: string) => `v${v}`,
+    checking: 'Checking for updates…',
+    current: 'Up to date',
+    downloading: (pct: number) => `Downloading update… ${Math.round(pct)}%`,
+    ready: (v: string) => `Version ${v} is ready`,
+    restart: 'Restart now',
+    later: 'Later',
+    check: 'Check for updates',
+    engineUpdating: 'Updating download engine…',
+    engineCurrent: (v: string) => `Engine ${v}`,
+    devNote: 'Auto-update is off in development builds.',
+    portableNote: 'Portable builds cannot update themselves — download the new version manually.',
+    failed: 'Update check failed'
+  },
+
+  toolbar: {
+    add: 'Add link',
+    downloads: 'Downloads',
+    sorting: 'Sorting',
+    options: 'Options',
+    openOutput: 'Open output'
+  },
+
+  sort: {
+    added: 'Order added',
+    title: 'Title (A–Z)',
+    size: 'Largest first',
+    state: 'Status'
+  },
+
   status: {
     noEngine: 'no engine',
     noFfmpeg: 'no HQ pack',
@@ -24,13 +55,17 @@ export const strings = {
   },
 
   queue: {
-    addPlaceholder: 'Paste one link, or many at once…',
     add: 'Add',
     heading: 'Queue',
     dropHint: 'Drop links anywhere in the window',
     dropActive: 'Release to add',
-    empty: 'Nothing queued yet',
-    emptyHint: 'Paste a link above, or drop one onto the window. Almost any video site works.',
+    empty: 'Copy a link, then press Ctrl+V',
+    emptyHint:
+      'Paste anywhere in this window, or drag a link onto it. Almost any video site works — paste several at once and they all queue.',
+    pasteHint: 'Ctrl+V',
+    added: (n: number) => `Added ${n} ${n === 1 ? 'link' : 'links'}`,
+    noLinks: 'No links found in what you pasted',
+    alreadyQueued: 'Already in the list',
     downloadAll: 'Download all',
     stopAll: 'Stop all',
     clearFinished: 'Clear finished',
@@ -140,6 +175,12 @@ export const strings = {
 
     concurrent: 'Downloads at once',
     concurrentHint: 'Used by the download queue.',
+
+    updates: 'Updates',
+    updatesHint:
+      'Tizo checks for app updates on launch and every six hours, and refreshes the download engine weekly. The engine matters most — sites change often, and a stale engine is what breaks downloads.',
+    appVersion: 'App version',
+    engineVersion: 'Download engine',
 
     components: 'Components',
     installed: 'installed',

@@ -218,3 +218,29 @@ export interface QueueItem {
   /** Present only while state is 'playlist'. */
   playlist: PlaylistInfo | null
 }
+
+// --- Updates ---------------------------------------------------------------
+
+export interface AppUpdateState {
+  currentVersion: string
+  status: 'idle' | 'checking' | 'current' | 'downloading' | 'ready' | 'error' | 'unsupported'
+  newVersion: string | null
+  percent: number | null
+  error: string | null
+  canSelfUpdate: boolean
+  /** Why self-update is off, when it is: running in dev, or a portable exe. */
+  reason: 'dev' | 'portable' | null
+}
+
+export interface EngineUpdateState {
+  currentVersion: string | null
+  status: 'idle' | 'checking' | 'current' | 'updating' | 'error'
+  newVersion: string | null
+  error: string | null
+  lastCheckedAt: number | null
+}
+
+export interface UpdateState {
+  app: AppUpdateState
+  engine: EngineUpdateState
+}
