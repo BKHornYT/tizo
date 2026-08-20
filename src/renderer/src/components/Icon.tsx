@@ -11,6 +11,7 @@ export type IconName =
   | 'options'
   | 'folder'
   | 'chevron'
+  | 'feedback'
 
 const PATHS: Record<IconName, React.ReactNode> = {
   add: (
@@ -46,6 +47,12 @@ const PATHS: Record<IconName, React.ReactNode> = {
   chevron: (
     <>
       <path d="m6 9 6 6 6-6" />
+    </>
+  ),
+  feedback: (
+    <>
+      <path d="M21 12a8 8 0 0 1-8 8H7l-4 3v-6a8 8 0 0 1 8-8h2a8 8 0 0 1 8 3Z" />
+      <path d="M9 11h6M9 14h4" />
     </>
   )
 }

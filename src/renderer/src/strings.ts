@@ -33,12 +33,39 @@ export const strings = {
     failed: 'Update check failed'
   },
 
+  feedback: {
+    reportSite: 'Report site',
+    suggest: 'Suggest',
+    title: {
+      site: 'Report a site that did not work',
+      idea: 'Suggest an improvement',
+      bug: 'Report a problem'
+    },
+    intro:
+      'This opens a prefilled report on GitHub. You can edit it there before posting — nothing is sent until you do.',
+    attachedLabel: 'What gets attached',
+    privacy:
+      'No link, file path or account detail is included — only the domain, versions, and the failure type.',
+    domainLabel: 'Site',
+    open: 'Open on GitHub',
+    cancel: 'Cancel',
+    browse: 'See existing reports',
+    kinds: {
+      site: 'A site did not work',
+      idea: 'An idea for Tizo',
+      bug: 'Something is broken'
+    },
+    staleHint:
+      'Worth trying again tomorrow first — the download engine updates weekly, and a stale engine is the usual cause.'
+  },
+
   toolbar: {
     add: 'Add link',
     downloads: 'Downloads',
     sorting: 'Sorting',
     options: 'Options',
-    openOutput: 'Open output'
+    openOutput: 'Open output',
+    feedback: 'Suggest'
   },
 
   sort: {
@@ -181,6 +208,21 @@ export const strings = {
       'Tizo checks for app updates on launch and every six hours, and refreshes the download engine weekly. The engine matters most — sites change often, and a stale engine is what breaks downloads.',
     appVersion: 'App version',
     engineVersion: 'Download engine',
+
+    feedbackSection: 'Suggestions and reports',
+    feedbackHint:
+      'Tizo covers around 1800 sites. If one does not work, or you have an idea, it goes to the public issue tracker.',
+
+    privacy: 'Usage data',
+    shareStats: 'Share which sites are used',
+    shareStatsHint:
+      'Sends a per-site download count, and separately a random ID so we can count installations. The two cannot be matched up, so nobody can see what any one computer downloaded.',
+    statsUnavailable: 'No collection endpoint is configured — nothing is sent.',
+    yourSites: 'Your downloads by site',
+    noSites: 'Nothing downloaded yet.',
+    clearStats: 'Clear local history',
+    viewTerms: 'View terms',
+    nextUpload: 'What would be sent next',
 
     components: 'Components',
     installed: 'installed',

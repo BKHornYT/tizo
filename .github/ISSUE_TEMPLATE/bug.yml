@@ -1,0 +1,25 @@
+name: Something is broken
+description: Tizo crashed, hung, or did the wrong thing
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+    validations:
+      required: false
+  - type: textarea
+    id: env
+    attributes:
+      label: Versions
+      description: Filled in automatically if you used the button inside Tizo.
+      render: text
+    validations:
+      required: false

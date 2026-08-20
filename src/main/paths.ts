@@ -26,7 +26,12 @@ export function binDir(): string {
   return join(dataDir(), 'bin')
 }
 
-/** Where finished downloads land unless the user picks somewhere else. */
+/**
+ * Where finished downloads land unless the user picks somewhere else.
+ *
+ * Videos rather than Downloads: these are media files people keep and browse,
+ * not transient files, and Downloads is the folder everyone treats as a bin.
+ */
 export function defaultDownloadDir(): string {
-  return join(app.getPath('downloads'), 'Tizo')
+  return join(app.getPath('videos'), 'Tizo')
 }

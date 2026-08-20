@@ -4,14 +4,23 @@ import { strings } from '../strings'
 
 const ACTIVE: QueueItem['state'][] = ['downloading', 'processing']
 
+/**
+ * Failures worth reporting. A geo-block, a missing login or a dead connection is
+ * not something an issue can fix, and inviting a report for those would bury the
+ * real cases in noise.
+ */
+const REPORTABLE = new Set(['UNSUPPORTED_SITE', 'UNKNOWN'])
+
 export default function QueueRow({
   item,
   hasFfmpeg,
-  onChoose
+  onChoose,
+  onReport
 }: {
   item: QueueItem
   hasFfmpeg: boolean
   onChoose: (item: QueueItem) => void
+  onReport: (item: QueueItem) => void
 }): React.JSX.Element {
   const active = ACTIVE.includes(item.state)
   const pct = item.percent ?? 0
@@ -65,7 +74,7 @@ export default function QueueRow({
           </div>
         )}
 
-        <Actions item={item} blocked={blocked} onChoose={onChoose} />
+        <Actions item={item} blocked={blocked} onChoose={onChoose} onReport={onReport} />
       </div>
     </li>
   )
@@ -153,11 +162,13 @@ function FormatSelect({
 function Actions({
   item,
   blocked,
-  onChoose
+  onChoose,
+  onReport
 }: {
   item: QueueItem
   blocked: boolean
   onChoose: (item: QueueItem) => void
+  onReport: (item: QueueItem) => void
 }): React.JSX.Element {
   const q = window.tizo.queue
 
@@ -193,6 +204,10 @@ function Actions({
 
       {(item.state === 'error' || item.state === 'cancelled') && item.formats.length > 0 && (
         <Action onClick={() => void q.start(item.id)}>{strings.queue.retry}</Action>
+      )}
+
+      {item.state === 'error' && item.error && REPORTABLE.has(item.error.code) && (
+        <Action onClick={() => onReport(item)}>{strings.feedback.reportSite}</Action>
       )}
 
       {(item.state === 'downloading' ||

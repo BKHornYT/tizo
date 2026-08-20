@@ -4,6 +4,7 @@ import type { SortKey } from '../App'
 import { strings } from '../strings'
 import QueueRow from '../components/QueueRow'
 import PlaylistPicker from '../components/PlaylistPicker'
+import FeedbackDialog from '../components/FeedbackDialog'
 
 /** Rough progress order, so "Status" sorting puts active work at the top. */
 const STATE_RANK: Record<QueueItem['state'], number> = {
@@ -32,6 +33,7 @@ export default function Queue({
   const [dragging, setDragging] = useState(false)
   const [choosing, setChoosing] = useState<QueueItem | null>(null)
   const [toast, setToast] = useState<{ id: number; text: string } | null>(null)
+  const [reporting, setReporting] = useState<QueueItem | null>(null)
 
   useEffect(() => {
     void window.tizo.queue.list().then(setItems)
@@ -169,6 +171,7 @@ export default function Queue({
                     item={item}
                     hasFfmpeg={hasFfmpeg}
                     onChoose={setChoosing}
+                    onReport={setReporting}
                   />
                 ))}
               </ul>
@@ -213,6 +216,18 @@ export default function Queue({
         >
           {toast.text}
         </div>
+      )}
+
+      {reporting && (
+        <FeedbackDialog
+          kind="site"
+          context={{
+            url: reporting.url,
+            ...(reporting.error?.code ? { errorCode: reporting.error.code } : {}),
+            ...(reporting.error?.detail ? { errorDetail: reporting.error.detail } : {})
+          }}
+          onClose={() => setReporting(null)}
+        />
       )}
 
       {choosing?.playlist && (

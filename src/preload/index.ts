@@ -3,8 +3,12 @@ import type {
   EngineStatus,
   MediaInfo,
   ProgressEvent,
+  FeedbackDraft,
+  FeedbackKind,
   QueueItem,
   Result,
+  SiteStat,
+  TermsState,
   UpdateState,
   Settings,
   SetupPlan,
@@ -45,6 +49,33 @@ const api = {
     ipcRenderer.invoke('engine:download', args),
 
   readClipboard: (): Promise<string> => ipcRenderer.invoke('clipboard:read'),
+
+  terms: {
+    state: (): Promise<TermsState> => ipcRenderer.invoke('terms:state'),
+    accept: (): Promise<TermsState> => ipcRenderer.invoke('terms:accept')
+  },
+
+  quit: (): Promise<void> => ipcRenderer.invoke('app:quit'),
+
+  stats: {
+    local: (): Promise<SiteStat[]> => ipcRenderer.invoke('stats:local'),
+    /** Exactly what an upload would contain — shown before opting in. */
+    pending: (): Promise<{ app: string; sites: Record<string, number> }> =>
+      ipcRenderer.invoke('stats:pending'),
+    clear: (): Promise<void> => ipcRenderer.invoke('stats:clear'),
+    /** False when no endpoint is configured, i.e. nothing can be sent at all. */
+    enabled: (): Promise<boolean> => ipcRenderer.invoke('stats:enabled')
+  },
+
+  feedback: {
+    /** Builds the report without sending it, so it can be shown first. */
+    draft: (
+      kind: FeedbackKind,
+      context?: { url?: string; errorCode?: string; errorDetail?: string }
+    ): Promise<FeedbackDraft> => ipcRenderer.invoke('feedback:draft', kind, context),
+    open: (url: string): Promise<void> => ipcRenderer.invoke('feedback:open', url),
+    browseIssues: (): Promise<void> => ipcRenderer.invoke('feedback:issues')
+  },
 
   updates: {
     state: (): Promise<UpdateState> => ipcRenderer.invoke('update:state'),

@@ -2,11 +2,15 @@ import { useEffect, useState } from 'react'
 import type {
   Container,
   EngineStatus,
+  FeedbackKind,
   FileExistsRule,
   Settings,
+  SiteStat,
   UpdateState
 } from '../../../shared/types'
 import { strings } from '../strings'
+import { terms as termsCopy } from '../terms'
+import FeedbackDialog from '../components/FeedbackDialog'
 
 const SPEED_PRESETS: Array<{ label: string; value: number | null }> = [
   { label: strings.settings.unlimited, value: null },
@@ -30,10 +34,22 @@ export default function SettingsView({
   const [settings, setSettings] = useState<Settings | null>(null)
   const [update, setUpdate] = useState<UpdateState | null>(null)
   const [checking, setChecking] = useState(false)
+  const [sites, setSites] = useState<SiteStat[]>([])
+  const [statsPossible, setStatsPossible] = useState(true)
+  const [pending, setPending] = useState<Record<string, number>>({})
+  const [feedback, setFeedback] = useState<FeedbackKind | null>(null)
+  const [showTerms, setShowTerms] = useState(false)
+
+  const reloadStats = (): void => {
+    void window.tizo.stats.local().then(setSites)
+    void window.tizo.stats.pending().then((p) => setPending(p.sites))
+  }
 
   useEffect(() => {
     void window.tizo.getSettings().then(setSettings)
     void window.tizo.updates.state().then(setUpdate)
+    void window.tizo.stats.enabled().then(setStatsPossible)
+    reloadStats()
     return window.tizo.updates.onChange(setUpdate)
   }, [])
 
@@ -151,6 +167,82 @@ export default function SettingsView({
         </div>
       </Group>
 
+      <Group title={strings.settings.privacy}>
+        <Toggle
+          label={strings.settings.shareStats}
+          hint={strings.settings.shareStatsHint}
+          checked={settings.shareStats}
+          onChange={(v) => void patch({ shareStats: v })}
+        />
+
+        {!statsPossible && (
+          <p className="rounded-md bg-ink-900/6 px-3 py-2 text-xs text-ink-500">
+            {strings.settings.statsUnavailable}
+          </p>
+        )}
+
+        {settings.shareStats && Object.keys(pending).length > 0 && (
+          <div>
+            <p className="mb-1 text-xs font-medium text-ink-500">{strings.settings.nextUpload}</p>
+            <pre className="max-h-32 overflow-auto rounded-md bg-ink-900/6 p-2.5 font-mono text-[11px] whitespace-pre-wrap text-ink-700 select-text">
+              {JSON.stringify({ sites: pending }, null, 2)}
+            </pre>
+          </div>
+        )}
+
+        <div>
+          <p className="mb-1.5 text-xs font-medium text-ink-500">{strings.settings.yourSites}</p>
+          {sites.length === 0 ? (
+            <p className="text-xs text-ink-400">{strings.settings.noSites}</p>
+          ) : (
+            <ul className="flex flex-col gap-1">
+              {sites.slice(0, 8).map((site) => (
+                <li key={site.domain} className="flex justify-between text-xs">
+                  <span className="text-ink-700">{site.domain}</span>
+                  <span className="font-mono text-ink-500">{site.downloads}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            onClick={() => void window.tizo.stats.clear().then(reloadStats)}
+            className="rounded-md bg-ink-900/8 px-3 py-2 text-xs text-ink-700 transition hover:bg-ink-900/15"
+          >
+            {strings.settings.clearStats}
+          </button>
+          <button
+            onClick={() => setShowTerms(true)}
+            className="rounded-md bg-ink-900/8 px-3 py-2 text-xs text-ink-700 transition hover:bg-ink-900/15"
+          >
+            {strings.settings.viewTerms}
+          </button>
+        </div>
+      </Group>
+
+      <Group title={strings.settings.feedbackSection}>
+        <p className="text-xs leading-relaxed text-ink-500">{strings.settings.feedbackHint}</p>
+        <div className="flex flex-wrap gap-2">
+          {(['site', 'idea', 'bug'] as FeedbackKind[]).map((kind) => (
+            <button
+              key={kind}
+              onClick={() => setFeedback(kind)}
+              className="rounded-md bg-brand-500 px-3 py-2 text-xs font-medium text-white transition hover:bg-brand-400"
+            >
+              {strings.feedback.kinds[kind]}
+            </button>
+          ))}
+          <button
+            onClick={() => void window.tizo.feedback.browseIssues()}
+            className="rounded-md bg-ink-900/8 px-3 py-2 text-xs text-ink-700 transition hover:bg-ink-900/15"
+          >
+            {strings.feedback.browse}
+          </button>
+        </div>
+      </Group>
+
       <Group title={strings.settings.components}>
         <ComponentRow
           name="Download engine (yt-dlp)"
@@ -169,6 +261,38 @@ export default function SettingsView({
           </code>
         </div>
       </Group>
+
+      {feedback && <FeedbackDialog kind={feedback} onClose={() => setFeedback(null)} />}
+
+      {showTerms && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-chrome-900/60 px-8 py-10">
+          <div className="flex max-h-full w-full max-w-xl flex-col rounded-xl border border-surface-line bg-white shadow-2xl">
+            <header className="shrink-0 px-6 pt-6">
+              <h3 className="text-lg font-semibold text-ink-900">{termsCopy.title}</h3>
+            </header>
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4 select-text">
+              {termsCopy.sections.map((section) => (
+                <section key={section.heading} className="mb-4 last:mb-0">
+                  <h4 className="text-sm font-semibold text-ink-900">{section.heading}</h4>
+                  {section.body.map((paragraph, i) => (
+                    <p key={i} className="mt-1 text-[13px] leading-relaxed text-ink-700">
+                      {paragraph}
+                    </p>
+                  ))}
+                </section>
+              ))}
+            </div>
+            <footer className="flex shrink-0 justify-end border-t border-surface-line px-6 py-3">
+              <button
+                onClick={() => setShowTerms(false)}
+                className="rounded-md bg-brand-500 px-4 py-2 text-xs font-medium text-white hover:bg-brand-400"
+              >
+                {strings.feedback.cancel}
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
 
       <div>
         <button

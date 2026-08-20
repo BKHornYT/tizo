@@ -1,0 +1,21 @@
+name: Suggestion
+description: An idea for how Tizo could be better
+title: "[idea] "
+labels: ["suggestion"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like Tizo to do?
+      description: Plain words are fine — no need to propose how to build it.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: What are you trying to get done?
+      description: >
+        The underlying goal, not just the feature. It often points at a simpler
+        answer than the one being asked for.
+    validations:
+      required: false

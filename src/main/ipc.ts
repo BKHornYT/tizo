@@ -3,6 +3,10 @@ import { cancelSetup, getSetupPlan, installComponentFromFile, runSetup } from '.
 import { loadSettings, resetSettings, saveSettings } from './store/settings'
 import * as queue from './queue'
 import { checkAppUpdate, checkEngineUpdate, getUpdateState, initUpdates, installNow } from './update'
+import { buildFeedback, issuesUrl, openFeedback } from './feedback'
+import { clearStats, localStats, pendingPayload, statsEnabled } from './stats'
+import { acceptTerms, readTerms } from './store/terms'
+import type { FeedbackKind } from '../shared/types'
 import { resolveFfmpeg } from './engine/binaries'
 import type { Settings } from '../shared/types'
 import { engineStatus } from './engine/binaries'
@@ -79,6 +83,38 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
     return getUpdateState()
   })
   ipcMain.handle('update:install', () => installNow())
+
+  ipcMain.handle('feedback:draft', (_e, kind: unknown, context: unknown) =>
+    buildFeedback(
+      (kind === 'site' || kind === 'idea' || kind === 'bug' ? kind : 'idea') as FeedbackKind,
+      (context ?? undefined) as { url?: string; errorCode?: string; errorDetail?: string } | undefined
+    )
+  )
+
+  ipcMain.handle('feedback:open', (_e, url: unknown) => {
+    if (typeof url === 'string') return openFeedback(url)
+    return undefined
+  })
+
+  ipcMain.handle('feedback:issues', () => shell.openExternal(issuesUrl()))
+
+  ipcMain.handle('terms:state', () => readTerms())
+
+  ipcMain.handle('terms:accept', async () => {
+    const state = await acceptTerms()
+    // Accepting the terms is the consent for the usage counts described in
+    // them. It stays switchable in Options — consent that cannot be withdrawn
+    // is not worth much.
+    await saveSettings({ shareStats: true })
+    return state
+  })
+
+  ipcMain.handle('app:quit', () => app.quit())
+
+  ipcMain.handle('stats:local', () => localStats())
+  ipcMain.handle('stats:pending', () => pendingPayload())
+  ipcMain.handle('stats:clear', () => clearStats())
+  ipcMain.handle('stats:enabled', () => statsEnabled())
 
   ipcMain.handle('clipboard:read', () => clipboard.readText())
 

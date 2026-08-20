@@ -159,6 +159,8 @@ export interface Settings {
   /** Used by the Phase 4 queue; stored now so the setting survives. */
   concurrentDownloads: number
   clipboardWatch: boolean
+  /** Opt-in. Shares only a domain-to-count tally; off unless chosen. */
+  shareStats: boolean
 }
 
 // --- Download queue --------------------------------------------------------
@@ -243,4 +245,30 @@ export interface EngineUpdateState {
 export interface UpdateState {
   app: AppUpdateState
   engine: EngineUpdateState
+}
+
+export interface TermsState {
+  /** True until the current terms version has been accepted. */
+  required: boolean
+  acceptedVersion: number | null
+  acceptedAt: string | null
+  currentVersion: number
+}
+
+export interface SiteStat {
+  domain: string
+  downloads: number
+}
+
+// --- Feedback --------------------------------------------------------------
+
+export type FeedbackKind = 'site' | 'idea' | 'bug'
+
+export interface FeedbackDraft {
+  kind: FeedbackKind
+  domain: string
+  /** Exactly what will be attached, shown to the user before anything opens. */
+  body: string
+  /** Prefilled GitHub issue URL. */
+  url: string
 }

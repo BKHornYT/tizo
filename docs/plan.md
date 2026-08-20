@@ -31,15 +31,18 @@ tizo/
 │   ├─ queue/             item state, probing, concurrency pump
 │   ├─ components/        fetch (resumable) + verify + unzip — setup AND addons
 │   ├─ setup/             first-run orchestration and on-disk state
-│   ├─ update/            electron-updater + yt-dlp self-update   [Phase 9]
-│   └─ store/             settings (history lands in Phase 6)
+│   ├─ update/            electron-updater + the weekly yt-dlp channel
+│   ├─ stats/             local site tally + two keyless upload streams
+│   ├─ feedback.ts        prefilled, sanitised GitHub issues
+│   └─ store/             settings, terms acceptance (history lands in Phase 6)
 ├─ src/preload/           contextBridge — the only main↔renderer surface
 ├─ src/shared/types.ts    types shared by all three processes
 ├─ src/renderer/src/
 │   ├─ views/             Queue (the main screen), SettingsView
 │   ├─ components/        QueueRow, PlaylistPicker
 │   └─ strings.ts         ALL user-visible copy
-└─ build/                 icons, NSIS config, portable config
+├─ server/                Cloudflare Worker for usage counts (not deployed)
+└─ build/                 icon.ico + iconsrc, NSIS and portable config
 ```
 
 The renderer never touches the filesystem or spawns processes. Everything goes
@@ -196,6 +199,35 @@ Each phase ends in something runnable.
 | 9 | Release pipeline | ☐ | GitHub Actions builds and publishes on tag; auto-update verified live |
 
 Phase 9 is the real proof: install v1.0.0, push v1.0.1, watch it update itself.
+
+## Usage counting
+
+Optional, opt-in via the terms, and off entirely until an endpoint is configured.
+The design constraint is that counting machines requires an identifier while a
+privacy-respecting tally must not have one. Both are satisfied by splitting into
+**two streams that share no key**:
+
+| Route | Carries | Never carries |
+|---|---|---|
+| `POST /sites` | `{domain: count}`, app version | any identifier |
+| `POST /install` | random UUID, app version | any site data |
+
+Separate tables, no foreign key, no IP logging. The server can answer *how many
+machines* and *which sites are popular*; it cannot answer *what does this machine
+download*. Adding the install id to a site row, or turning on Cloudflare Logpush,
+destroys that property — do neither. Full detail in
+[../server/README.md](../server/README.md).
+
+## Suggestions and site reports
+
+The domain gate must never dead-end. A failed download offers **Report site**,
+which opens a prefilled GitHub issue carrying the domain, versions and the
+failure code — with URLs and user paths stripped, because yt-dlp stderr routinely
+contains the full link. The payload is shown before anything opens.
+
+Only `UNSUPPORTED_SITE` and `UNKNOWN` failures offer it. A geo-block, a missing
+login or a dead connection is not something an issue can fix, and inviting
+reports for those would bury the real cases.
 
 ## Tests
 

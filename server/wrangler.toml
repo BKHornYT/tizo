@@ -1,0 +1,11 @@
+name = "tizo-stats"
+main = "worker.js"
+compatibility_date = "2026-08-01"
+
+# Cloudflare logs request IPs only if you turn Logpush on. Leave it off — the
+# whole point of this endpoint is that it cannot identify anyone.
+
+[[d1_databases]]
+binding = "DB"
+database_name = "tizo-stats"
+database_id = "REPLACE_WITH_YOUR_D1_ID"

@@ -1,0 +1,37 @@
+name: Site not working
+description: A site Tizo could not download from
+title: "[site] "
+labels: ["site-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Most of the time this is a stale download engine
+        rather than a missing site — Tizo refreshes it weekly, so trying again
+        tomorrow is worth a shot before filing.
+
+        **Please do not paste a full link to private or paid content.** The
+        domain is enough for us to work with.
+  - type: input
+    id: domain
+    attributes:
+      label: Site
+      description: Just the domain, e.g. example.com
+      placeholder: example.com
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: What happened
+      description: Filled in automatically if you used the button inside Tizo.
+      render: text
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before filing
+      options:
+        - label: The video plays normally in my browser
+        - label: It is not behind a login I have not signed into

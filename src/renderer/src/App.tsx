@@ -1,15 +1,24 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { EngineStatus, SetupPlan, Settings, UpdateState } from '../../shared/types'
+import type {
+  EngineStatus,
+  SetupPlan,
+  Settings,
+  TermsState,
+  UpdateState
+} from '../../shared/types'
 import { strings } from './strings'
 import SetupWizard from './SetupWizard'
+import TermsScreen from './TermsScreen'
 import Queue from './views/Queue'
 import SettingsView from './views/SettingsView'
 import Icon, { type IconName } from './components/Icon'
+import FeedbackDialog from './components/FeedbackDialog'
 
 type View = 'download' | 'settings'
 export type SortKey = 'added' | 'title' | 'size' | 'state'
 
 export default function App(): React.JSX.Element {
+  const [terms, setTerms] = useState<TermsState | null>(null)
   const [plan, setPlan] = useState<SetupPlan | null>(null)
   const [status, setStatus] = useState<EngineStatus | null>(null)
   const [settings, setSettings] = useState<Settings | null>(null)
@@ -20,13 +29,16 @@ export default function App(): React.JSX.Element {
   const [pasteToken, setPasteToken] = useState(0)
   const [update, setUpdate] = useState<UpdateState | null>(null)
   const [dismissed, setDismissed] = useState<string | null>(null)
+  const [suggesting, setSuggesting] = useState(false)
 
   const refresh = useCallback(async () => {
-    const [nextPlan, nextStatus, nextSettings] = await Promise.all([
+    const [nextTerms, nextPlan, nextStatus, nextSettings] = await Promise.all([
+      window.tizo.terms.state(),
       window.tizo.setupPlan(),
       window.tizo.engineStatus(),
       window.tizo.getSettings()
     ])
+    setTerms(nextTerms)
     setPlan(nextPlan)
     setStatus(nextStatus)
     setSettings(nextSettings)
@@ -41,9 +53,13 @@ export default function App(): React.JSX.Element {
     return window.tizo.updates.onChange(setUpdate)
   }, [])
 
-  // Nothing renders until we know whether setup is owed — flashing the main UI
-  // and then replacing it with a wizard reads as a bug.
-  if (!plan) return <div className="app-gradient h-full" />
+  // Nothing renders until we know what is owed — flashing the main UI and then
+  // replacing it with a gate reads as a bug.
+  if (!plan || !terms) return <div className="app-gradient h-full" />
+  // Terms come before setup: they cover the download that setup is about to do.
+  if (terms.required) {
+    return <TermsScreen onAccept={() => void window.tizo.terms.accept().then(() => refresh())} />
+  }
   if (plan.required) return <SetupWizard plan={plan} onDone={() => void refresh()} />
 
   return (
@@ -93,6 +109,11 @@ export default function App(): React.JSX.Element {
             label={strings.toolbar.openOutput}
             onClick={() => settings && void window.tizo.openPath(settings.outputDir)}
           />
+          <ToolButton
+            icon="feedback"
+            label={strings.toolbar.feedback}
+            onClick={() => setSuggesting(true)}
+          />
         </div>
 
         <div className="flex items-center gap-2 pb-1.5 text-xs">
@@ -108,6 +129,8 @@ export default function App(): React.JSX.Element {
           </button>
         </div>
       </header>
+
+      {suggesting && <FeedbackDialog kind="idea" onClose={() => setSuggesting(false)} />}
 
       {update?.app.status === 'ready' && update.app.newVersion !== dismissed && (
         <UpdateBanner

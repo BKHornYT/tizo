@@ -39,8 +39,10 @@ file — and a week later gets a bugfix without doing anything.
   folder-per-download, container choice and file-collision handling, and a
   queue-centred UI with concurrency, drag-and-drop, batch paste, and playlist and
   channel expansion with a per-item picker, queue sorting, paste-anywhere input,
-  and the update system (app + engine channels, version shown in the toolbar)
-- **In progress:** Phase 5 — audio extraction and subtitles
+  the update system (app + engine channels, version in the toolbar), a first-run
+  terms gate, GitHub-backed suggestions and site reports, opt-in usage counting,
+  and a custom app icon
+- **In progress:** Phase 8 — packaging. Icon done; installer build in progress
 - **Known broken / not started:** no audio extraction or subtitles (Phase 5), no
   clipboard *watcher* or history or tray (Phase 6), no playlist monitoring (6.5),
   no optional addon gates (7), no icons or built installers (8), no CI release
@@ -97,6 +99,9 @@ src/main/queue/            item state, probing, concurrency pump, playlist expan
 src/main/components/       fetch (resumable) + verify + unzip — powers setup AND addons
 src/main/setup/            first-run orchestration and on-disk setup state
 src/main/update/           electron-updater + the weekly yt-dlp engine channel
+src/main/feedback.ts       builds prefilled GitHub issues; sanitises before sending
+src/main/stats/            local site tally + the two opt-in upload streams
+src/main/store/terms.ts    first-run terms acceptance state
 src/main/store/settings.ts persisted settings, validated field-by-field on read
 
 src/preload/index.ts       contextBridge; the ONLY main↔renderer surface
@@ -104,7 +109,9 @@ src/shared/types.ts        types shared across main, preload and renderer
 
 src/renderer/src/App.tsx   shell: setup gate, tabs, status pills
 src/renderer/src/views/    Queue (the main screen) and SettingsView
-src/renderer/src/components/  QueueRow, PlaylistPicker, Icon
+src/renderer/src/components/  QueueRow, PlaylistPicker, Icon, FeedbackDialog
+src/renderer/src/TermsScreen.tsx  first-run terms gate
+src/renderer/src/terms.ts     the terms copy itself
 src/renderer/src/strings.ts   ALL user-visible copy; never hardcode text in a component
 
 scripts/test-args.ts       offline assertions that settings reach the command line
@@ -112,7 +119,9 @@ scripts/test-fetcher.ts    network test for resume and integrity
 scripts/test-essentials.ts real end-to-end install of the published components
 scripts/install-essentials.ts dev convenience: skip the first-run wizard
 
-build/                     installer icons and branding (empty until Phase 8)
+build/icon.ico             app icon, 7 sizes; regenerate with `npm run icon`
+build/iconsrc/             the PNGs it is built from — checked in on purpose
+server/                    Cloudflare Worker for usage counts + its schema and docs
 resources/                 files packed into the app; resources/bin is gitignored
 docs/plan.md               phases, architecture, component schema, test matrix
 docs/features.md           feature set vs. the reference app — taken, improved, skipped
@@ -127,6 +136,24 @@ deliberately differ from the reference app.
 
 Newest first.
 
+- **2026-08-20 — Telemetry is two streams that share no key.** `/sites` carries
+  `{domain: count}` with no identifier; `/install` carries a random UUID with no
+  site data. Separate tables, no join. *Why:* the server can then answer "how many
+  machines" and "which sites are popular" but **cannot** answer "what does this
+  machine download" — which for a video downloader is the thing not to build.
+  Putting the install id on a site row, or enabling Cloudflare Logpush (IPs),
+  collapses the guarantee. See [server/README.md](server/README.md).
+- **2026-08-20 — Terms gate on first run, before setup.** Accepting is the consent
+  for the usage counts, and it stays switchable in Options — consent that cannot be
+  withdrawn is not worth much. The agree button unlocks only after the text has
+  been scrolled, so the telemetry section is actually seen.
+- **2026-08-20 — Suggestions go to GitHub Issues, prefilled and sanitised.** yt-dlp
+  stderr routinely contains the full URL, which for private or paid content must
+  never reach a public tracker; URLs and user paths are stripped, and the exact
+  payload is shown before anything opens.
+- **2026-08-20 — Default download folder is Videos/Tizo, not Downloads/Tizo.**
+  These are media files people keep, and Downloads is the folder everyone treats
+  as a bin.
 - **2026-08-20 — Visual language copied from the reference app.** Dark navy chrome
   top and bottom, an orange→violet→blue gradient behind the content, purple accents,
   icon-over-label toolbar. Structure alone was not enough — the user supplied

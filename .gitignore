@@ -7,3 +7,4 @@ dist/
 .env.local
 *.pfx
 resources/bin/
+# build/iconsrc is kept: it is the source for scripts/build-icon.mjs

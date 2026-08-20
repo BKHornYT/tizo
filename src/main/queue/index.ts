@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { inspectPlaylist, probe } from '../engine/probe'
 import { cancelDownload, startDownload } from '../engine/download'
 import { loadSettings } from '../store/settings'
+import { maybeUpload, recordDownload } from '../stats'
 import type { FormatOption, ProgressEvent, QueueItem } from '../../shared/types'
 
 type Listener = (items: QueueItem[]) => void
@@ -274,6 +275,11 @@ async function pump(): Promise<void> {
         }
 
         jobs.delete(item.id)
+        // Counted on success only — a failed or cancelled attempt says nothing
+        // about whether a site works.
+        if (event.status === 'done') {
+          void recordDownload(item.url).then(() => maybeUpload())
+        }
         patch(item.id, {
           state: event.status,
           percent: event.status === 'done' ? 100 : current.percent,

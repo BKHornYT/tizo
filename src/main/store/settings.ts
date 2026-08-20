@@ -19,7 +19,11 @@ function defaults(): Settings {
     onFileExists: 'skip-if-same',
     container: 'mp4',
     concurrentDownloads: 3,
-    clipboardWatch: false
+    clipboardWatch: false,
+    // Opt-in, never opt-out. Aggregate counts are low-risk, but silently
+    // switched-on telemetry in a downloader costs trust the one time someone
+    // notices — and it should be their call regardless.
+    shareStats: false
   }
 }
 
@@ -51,7 +55,9 @@ function coerce(raw: unknown): Settings {
       ? (r['container'] as Container)
       : base.container,
     concurrentDownloads: num(r['concurrentDownloads'], 1, 10, base.concurrentDownloads),
-    clipboardWatch: typeof r['clipboardWatch'] === 'boolean' ? r['clipboardWatch'] : base.clipboardWatch
+    clipboardWatch:
+      typeof r['clipboardWatch'] === 'boolean' ? r['clipboardWatch'] : base.clipboardWatch,
+    shareStats: typeof r['shareStats'] === 'boolean' ? r['shareStats'] : base.shareStats
   }
 }
 
