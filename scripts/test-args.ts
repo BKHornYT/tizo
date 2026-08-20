@@ -115,6 +115,18 @@ ok(
 )
 ok('single fragment is not passed', !ctx({}, { profile: { concurrentFragments: 1 } }).includes('-N'))
 
+// --- Bot-wall impersonation ------------------------------------------------
+ok(
+  'probe-detected impersonation reaches the command line',
+  hasPair(ctx({}, { impersonate: true }), '--extractor-args', 'generic:impersonate')
+)
+ok('no impersonation by default', !ctx({}).includes('generic:impersonate'))
+ok(
+  'a registry target wins over the generic flag',
+  hasPair(ctx({}, { impersonate: true, profile: { impersonate: 'chrome' } }), '--impersonate', 'chrome') &&
+    !ctx({}, { impersonate: true, profile: { impersonate: 'chrome' } }).includes('generic:impersonate')
+)
+
 // --- ffmpeg location -------------------------------------------------------
 ok(
   'managed ffmpeg directory is passed',

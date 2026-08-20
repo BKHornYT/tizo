@@ -29,6 +29,8 @@ export interface DownloadRequest {
   outDir?: string
   /** Media URL found by scanning the page; downloaded instead of `url`. */
   directUrl?: string
+  /** The probe only got through with browser impersonation; do the same here. */
+  impersonate?: boolean
   /** Set after the user has answered a file-exists prompt. */
   resolveConflict?: 'overwrite' | 'rename'
 }
@@ -166,7 +168,8 @@ export async function startDownload(
     needsFfmpeg: req.needsFfmpeg,
     profile,
     ffmpegDir,
-    referer
+    referer,
+    impersonate: req.impersonate ?? false
   }
 
   let collisionSuffix: string | undefined

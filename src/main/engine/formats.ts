@@ -195,3 +195,19 @@ export function listAllFormats(raw: RawFormat[]): FormatOption[] {
       }
     })
 }
+
+/**
+ * yt-dlp arguments that make the generic extractor impersonate a real browser's
+ * TLS fingerprint.
+ *
+ * Cloudflare and similar bot walls reject the default client outright. The
+ * bundled yt-dlp.exe ships curl_cffi, so this works — but it is applied only as
+ * a retry, never up front: impersonation is slower and some sites behave worse
+ * under it, so paying that cost on every request would be wrong.
+ */
+export const IMPERSONATE_ARGS = ['--extractor-args', 'generic:impersonate']
+
+/** True when a failure looks like a bot wall rather than a missing extractor. */
+export function looksBotBlocked(stderr: string): boolean {
+  return /cloudflare|anti-bot|http error 403|generic:impersonate|just a moment/i.test(stderr)
+}

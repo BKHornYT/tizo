@@ -64,7 +64,8 @@ function blank(url: string): QueueItem {
     outputPath: null,
     error: null,
     playlist: null,
-    directUrl: null
+    directUrl: null,
+    impersonate: false
   }
 }
 
@@ -140,6 +141,7 @@ async function runProbe(id: string, hasFfmpeg: boolean): Promise<void> {
           allFormats: [],
           formatId: scraped.info.formats[0]?.id ?? 'b',
           directUrl: scraped.directUrl,
+          impersonate: scraped.info.impersonate,
           error: null
         })
         return
@@ -173,7 +175,8 @@ async function runProbe(id: string, hasFfmpeg: boolean): Promise<void> {
     formats: info.formats,
     allFormats: info.allFormats,
     formatId: chosen?.id ?? null,
-    url: info.webpageUrl
+    url: info.webpageUrl,
+    impersonate: info.impersonate
   })
 }
 
@@ -332,6 +335,7 @@ async function pump(): Promise<void> {
         url: item.url,
         format: item.formatId,
         needsFfmpeg: format?.needsFfmpeg ?? false,
+        impersonate: item.impersonate,
         ...(item.directUrl ? { directUrl: item.directUrl } : {})
       }
 

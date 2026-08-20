@@ -207,7 +207,10 @@ export async function scrapePage(pageUrl: string): Promise<ScrapeResult | null> 
           note: 'Found by scanning the page — quality options are not available'
         }
       ],
-      allFormats: []
+      allFormats: [],
+      // The page fetch already used a browser user-agent; the download should
+      // present the same way.
+      impersonate: true
     }
   }
 }

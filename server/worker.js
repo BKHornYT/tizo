@@ -27,6 +27,65 @@ function json(data, status = 200) {
   })
 }
 
+/** Minimal dashboard. No build step, no dependencies — it is one query. */
+function html(data) {
+  const rows = data.sites
+    .map(
+      (s, i) =>
+        `<tr><td class="n">${i + 1}</td><td>${escapeHtml(s.domain)}</td><td class="v">${s.downloads.toLocaleString()}</td></tr>`
+    )
+    .join('')
+
+  return new Response(
+    `<!doctype html><meta charset="utf-8"><title>Tizo usage</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{color-scheme:dark}
+body{margin:0;padding:2.5rem 1.5rem;background:#1e2138;color:#e8e9f0;
+  font:15px/1.5 'Segoe UI',system-ui,sans-serif}
+main{max-width:44rem;margin:0 auto}
+h1{margin:0 0 .25rem;font-size:1.35rem}
+p.sub{margin:0 0 2rem;color:#9aa0bd;font-size:.85rem}
+.cards{display:flex;gap:1rem;margin-bottom:2rem;flex-wrap:wrap}
+.card{flex:1 1 10rem;background:#272b47;border-radius:.75rem;padding:1rem 1.25rem}
+.card b{display:block;font-size:1.9rem;font-weight:600;letter-spacing:-.02em}
+.card span{color:#9aa0bd;font-size:.8rem}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;
+  color:#9aa0bd;padding:0 .6rem .5rem;font-weight:600}
+td{padding:.55rem .6rem;border-top:1px solid #ffffff14}
+td.n{color:#6f7595;width:2.5rem;font-variant-numeric:tabular-nums}
+td.v{text-align:right;font-variant-numeric:tabular-nums;color:#b95ce4;font-weight:600}
+footer{margin-top:2.5rem;color:#6f7595;font-size:.75rem;line-height:1.7}
+code{background:#ffffff12;padding:.1rem .35rem;border-radius:.25rem}
+</style>
+<main>
+<h1>Tizo usage</h1>
+<p class="sub">Public on purpose — data collected about users should not be private to whoever collects it.</p>
+<div class="cards">
+  <div class="card"><b>${data.installs.toLocaleString()}</b><span>installations</span></div>
+  <div class="card"><b>${data.downloads.toLocaleString()}</b><span>downloads counted</span></div>
+  <div class="card"><b>${data.sites.length.toLocaleString()}</b><span>sites seen</span></div>
+</div>
+${rows ? `<table><tr><th></th><th>Site</th><th style="text-align:right">Downloads</th></tr>${rows}</table>` : '<p style="color:#9aa0bd">Nothing reported yet.</p>'}
+<footer>
+Two streams that share no key: site counts carry no identifier, and the install
+ping carries no site data. Separate tables, no join, no IP logging — so these
+numbers show <em>how many machines</em> and <em>which sites are popular</em>, and
+cannot show what any one machine downloaded.<br>
+Raw JSON: <code>?.json</code> or send <code>Accept: application/json</code>.
+</footer>
+</main>`,
+    { headers: { 'content-type': 'text/html; charset=utf-8', ...CORS } }
+  )
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
+  )
+}
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export default {
@@ -37,6 +96,10 @@ export default {
 
     // Public totals, so the numbers this collects are not private to us.
     if (request.method === 'GET') {
+      // A browser gets a readable page; anything else gets the JSON. Same data
+      // either way — the dashboard is just a rendering of the same query.
+      const wantsHtml =
+        !path.endsWith('.json') && (request.headers.get('accept') ?? '').includes('text/html')
       const [sites, installs, total] = await Promise.all([
         env.DB.prepare(
           'SELECT domain, downloads FROM site_counts ORDER BY downloads DESC LIMIT 500'
@@ -44,11 +107,12 @@ export default {
         env.DB.prepare('SELECT COUNT(*) AS n FROM installs').first(),
         env.DB.prepare('SELECT COALESCE(SUM(downloads), 0) AS n FROM site_counts').first()
       ])
-      return json({
+      const data = {
         installs: installs?.n ?? 0,
         downloads: total?.n ?? 0,
         sites: sites.results ?? []
-      })
+      }
+      return wantsHtml ? html(data) : json(data)
     }
 
     if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405)

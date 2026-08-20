@@ -21,6 +21,8 @@ export interface ArgContext {
   collisionSuffix?: string | undefined
   /** Page the media was embedded on; required by many CDNs. */
   referer?: string | undefined
+  /** Site is behind a bot wall; impersonate a browser's TLS fingerprint. */
+  impersonate?: boolean | undefined
 }
 
 export const PROGRESS_MARK = '@@TIZO@@'
@@ -103,7 +105,10 @@ export function buildDownloadArgs(ctx: ArgContext): string[] {
   // it was embedded on.
   if (ctx.referer) args.push('--referer', ctx.referer)
 
+  // A registry profile names a specific target; the probe's own finding is a
+  // generic "this site needs it" and uses the generic extractor arg.
   if (profile?.impersonate) args.push('--impersonate', profile.impersonate)
+  else if (ctx.impersonate) args.push('--extractor-args', 'generic:impersonate')
   if (profile?.concurrentFragments && profile.concurrentFragments > 1) {
     args.push('-N', String(profile.concurrentFragments))
   }

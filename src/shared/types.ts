@@ -75,6 +75,11 @@ export interface MediaInfo {
   formats: FormatOption[]
   /** Every usable format, revealed by the "All formats" expander. */
   allFormats: FormatOption[]
+  /**
+   * True when the probe only succeeded with browser impersonation. The download
+   * must use the same route, or a site we just got past will refuse us again.
+   */
+  impersonate: boolean
 }
 
 export type JobStatus = 'downloading' | 'processing' | 'done' | 'error' | 'cancelled'
@@ -226,6 +231,9 @@ export interface QueueItem {
    * referer — many CDNs refuse a request that arrives without one.
    */
   directUrl: string | null
+
+  /** Carried from the probe: this site needs browser impersonation. */
+  impersonate: boolean
 }
 
 // --- Updates ---------------------------------------------------------------
