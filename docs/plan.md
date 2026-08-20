@@ -45,7 +45,7 @@ will do anything. Users cannot skip this.
 
 | Component | Size | Source | Why it's real |
 |---|---|---|---|
-| ffmpeg | ~82 MB | self-hosted zip | 1080p+/4K muxing, MP3, subtitle embed |
+| ffmpeg | ~82 MB | self-hosted zip | Muxing anything above 360p, MP3, subtitle embed |
 | yt-dlp | ~17 MB | **live from `yt-dlp/yt-dlp` latest** | Current at setup time, not build time |
 | Impersonation libs | ~8 MB | self-hosted zip | TLS fingerprint spoofing — Instagram and several CDNs hard-block default clients |
 | Site profile pack | ~2 MB | self-hosted zip | Per-site tuning: headers/UA, YouTube player clients + PO-token config, rate limits, auth requirements, format preferences |
@@ -142,7 +142,9 @@ download → verify → unzip → activate pipeline, driven by a manifest:
 Components are just folders on disk; deleting one uninstalls it. Optional addons
 install later via two triggers:
 
-- **Capability gate** — a job needs something not installed → offer it.
+- **Capability gate** — a job needs something not installed → offer it. Measured
+  2026-08-20: YouTube exposes exactly one progressive stream (360p), so this
+  fires on essentially every meaningful quality choice.
 - **Domain gate** — yt-dlp returns `Unsupported URL` → look the domain up in
   `domains` → offer the plugin, or a "Report this site" button that opens a
   prefilled GitHub issue.

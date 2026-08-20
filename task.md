@@ -4,15 +4,6 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
 
 ## Now
 
-### Phase 1 — Download engine
-- [ ] Resolve yt-dlp path across dev / installed / portable modes
-- [ ] Spawn wrapper with `--newline --progress-template` JSON progress parsing
-- [ ] Format probing (`-J`) → available qualities, flagging which need ffmpeg
-- [ ] Cancel, error classification (unsupported URL / geo / auth / network)
-- [ ] Dev panel in the renderer to drive it end to end
-
-## Next
-
 ### Phase 2 — Component manager + first-run setup
 - [ ] Component manager: download → sha256 verify → unzip → activate → remove
 - [ ] Resumable transfers (HTTP range), retry with backoff, corrupt-file re-fetch
@@ -21,6 +12,8 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
 - [ ] Live yt-dlp fetch from upstream latest
 - [ ] Manual "install from file" offline path
 - [ ] Setup state written only after verification; interrupted setup restarts clean
+
+## Next
 
 ### Phase 3 — Core GUI
 - [ ] URL bar with paste + validation, video info card (title, thumb, duration)
@@ -75,5 +68,8 @@ _Nothing blocked._
 - [x] 2026-08-20 — **Phase 0 complete** — repo `BKHornYT/tizo` created, Electron 43 +
       Vite 7 + React 19 + Tailwind 4 scaffold builds and runs, IPC bridge verified,
       electron-builder configured for installer + portable + zip
+- [x] 2026-08-20 — **Phase 1 complete** — yt-dlp wrapper with JSON progress parsing,
+      format probing with ffmpeg flagging, 12-code error classification, tree-kill
+      cancel, and a working dev panel. Verified end to end against YouTube.
 
 </details>

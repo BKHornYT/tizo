@@ -138,9 +138,16 @@ Newest first.
   from `'./index'` resolved to *itself*, silently killing the `Window.tizo` type.
   Global declarations live in `src/renderer/src/env.d.ts` instead.
 - **TypeScript 6 removed `baseUrl`.** Path aliases must be relative (`./src/...`).
-- **1080p+ needs ffmpeg.** YouTube serves video and audio as separate streams
-  above 720p. Without ffmpeg to mux them the app can only offer ≤720p — this is
-  the whole reason the HQ Pack gate exists, not an arbitrary limitation.
+- **Without ffmpeg, YouTube caps at 360p — not 720p.** Measured 2026-08-20: a
+  YouTube video exposes 37 video-only formats and exactly *one* progressive
+  (audio+video) stream, at 360p. Everything above that must be muxed. This is
+  why the Essentials download is mandatory — without it the app is nearly
+  useless on the single most important site.
+- **A `bv*+ba` selector always demands ffmpeg.** yt-dlp hard-errors with
+  "requested merging … ffmpeg is not installed" instead of falling back down the
+  `/` chain. Format rows marked `needsFfmpeg: false` must therefore use a
+  progressive-only selector (`b[height<=N]`), never a merge selector with a
+  progressive fallback.
 
 ## Deploy / Where It Lives
 
