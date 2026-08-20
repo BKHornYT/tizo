@@ -1,12 +1,14 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow } from 'electron'
 import { join } from 'node:path'
+import { registerIpc } from './ipc'
+import { cancelAll } from './engine/download'
 
 const isDev = !app.isPackaged
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 1100,
-    height: 720,
+    height: 760,
     minWidth: 880,
     minHeight: 560,
     show: false, // revealed on ready-to-show to avoid a white flash
@@ -41,15 +43,6 @@ function createWindow(): BrowserWindow {
   return win
 }
 
-function registerIpc(): void {
-  ipcMain.handle('app:versions', () => ({
-    app: app.getVersion(),
-    electron: process.versions.electron,
-    chrome: process.versions.chrome,
-    node: process.versions.node
-  }))
-}
-
 // Single instance: a second launch focuses the existing window instead of
 // starting a rival copy that would fight over the download queue and settings.
 if (!app.requestSingleInstanceLock()) {
@@ -65,13 +58,17 @@ if (!app.requestSingleInstanceLock()) {
   })
 
   void app.whenReady().then(() => {
-    registerIpc()
+    registerIpc(() => mainWindow)
     mainWindow = createWindow()
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) mainWindow = createWindow()
     })
   })
+
+  // A surviving yt-dlp (and its ffmpeg child) would keep writing to disk long
+  // after the window is gone.
+  app.on('before-quit', cancelAll)
 
   app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit()

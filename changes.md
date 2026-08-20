@@ -11,6 +11,35 @@ Newest first. One entry per change, using this format:
 
 ---
 
+## 2026-08-20 — Phase 1: download engine
+**What:** Built the yt-dlp engine behind a typed IPC surface. `engine/binaries.ts`
+resolves yt-dlp and ffmpeg (managed binary first, PATH fallback in dev only — a
+packaged build must run what setup verified, not whatever the user has lying
+around). `engine/probe.ts` runs `-J` and collapses yt-dlp's 40+ near-duplicate
+formats into a short pickable list, flagging which need muxing.
+`engine/download.ts` spawns yt-dlp with a JSON progress template, parses progress
+line-by-line, detects post-processing stages, and cancels by killing the whole
+process tree. `engine/errors.ts` classifies stderr into 12 codes — UNSUPPORTED_SITE
+and FFMPEG_REQUIRED are the two the addon gates will hang off. Renderer got a dev
+panel: paste link → probe → pick quality → download with live speed/ETA → reveal in
+folder. Verified end to end against YouTube, both the progressive and merge paths.
+**Why:** Phase 1 of the plan. Everything above this is UI over these four modules.
+**Files:** src/shared/types.ts, src/main/paths.ts, src/main/ipc.ts,
+src/main/index.ts, src/main/engine/{binaries,errors,probe,download}.ts,
+src/preload/index.ts, src/renderer/src/{App.tsx,format.ts}, CLAUDE.md, docs/plan.md,
+task.md
+
+**Two findings, both now in CLAUDE.md Gotchas:**
+- **Without ffmpeg YouTube caps at 360p, not 720p as the plan assumed.** Measured on
+  a real video: 37 video-only formats, exactly one progressive stream, at 360p.
+  Corrected in `docs/plan.md` and `CLAUDE.md`. This strengthens the case for the
+  mandatory Essentials download — without it the app is nearly useless on YouTube.
+- **Caught a real bug from that measurement:** rows marked `needsFfmpeg: false` were
+  still being given a `bv*+ba/b` selector, which always attempts a merge. yt-dlp
+  hard-errors when ffmpeg is missing rather than falling back down the `/` chain, so
+  every "no HQ pack needed" option would have failed for exactly the users who have
+  no HQ pack. Those rows now use a progressive-only `b[height<=N]` selector.
+
 ## 2026-08-20 — Phase 0: scaffold runs
 **What:** Created GitHub repo `BKHornYT/tizo` (private) and scaffolded the app —
 Electron 43.4.1, Vite 7, React 19, Tailwind 4, TypeScript, built via electron-vite
