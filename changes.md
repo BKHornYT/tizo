@@ -11,6 +11,14 @@ Newest first. One entry per change, using this format:
 
 ---
 
+## 2026-08-20 — v0.0.2
+**What:** Second release. Contains the page-scan fallback for sites with no
+extractor, and `releaseType: release` so this one publishes directly instead of
+landing as an invisible draft.
+**Why:** The scan landed after v0.0.1 was tagged, so it is not in that binary. This
+release also serves as the auto-update proof — an installed v0.0.1 should find it.
+**Files:** package.json, package-lock.json, changes.md
+
 ## 2026-08-20 — v0.0.1 released
 **What:** First public release: https://github.com/BKHornYT/tizo/releases/tag/v0.0.1
 carrying the setup exe (99 MB), portable exe (98 MB), zip (138 MB) and `latest.yml`.
