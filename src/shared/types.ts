@@ -71,7 +71,10 @@ export interface MediaInfo {
   thumbnail: string | null
   webpageUrl: string
   extractor: string
+  /** The short, curated list shown by default. */
   formats: FormatOption[]
+  /** Every usable format, revealed by the "All formats" expander. */
+  allFormats: FormatOption[]
 }
 
 export type JobStatus = 'downloading' | 'processing' | 'done' | 'error' | 'cancelled'
@@ -130,4 +133,30 @@ export interface SetupProgress {
   totalBytes: number
   speed: number | null
   error?: string
+}
+
+// --- Settings --------------------------------------------------------------
+
+/**
+ * What to do when the target file already exists.
+ * `skip-if-same` is the default: asking on every collision punishes batch
+ * downloads, which is exactly when collisions happen.
+ */
+export type FileExistsRule = 'skip-if-same' | 'rename' | 'overwrite' | 'ask'
+
+export type Container = 'mp4' | 'mkv' | 'original'
+
+export interface Settings {
+  outputDir: string
+  /** Kilobytes per second. null means unlimited. */
+  maxSpeedKbps: number | null
+  /** Give each download its own subfolder — useful once subtitles arrive. */
+  folderPerDownload: boolean
+  geoBypass: boolean
+  onFileExists: FileExistsRule
+  /** Container to mux into when merging. `original` leaves it to yt-dlp. */
+  container: Container
+  /** Used by the Phase 4 queue; stored now so the setting survives. */
+  concurrentDownloads: number
+  clipboardWatch: boolean
 }

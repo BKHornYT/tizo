@@ -14,7 +14,9 @@
     "dist": "npm run build && electron-builder --win",
     "dist:dir": "npm run build && electron-builder --win --dir",
     "test:fetcher": "node --experimental-strip-types scripts/test-fetcher.ts",
-    "test:essentials": "node --experimental-strip-types scripts/test-essentials.ts"
+    "test:essentials": "node --experimental-strip-types scripts/test-essentials.ts",
+    "test:args": "node --experimental-strip-types scripts/test-args.ts",
+    "test": "npm run typecheck && npm run test:args"
   },
   "dependencies": {
     "electron-updater": "6.8.9",

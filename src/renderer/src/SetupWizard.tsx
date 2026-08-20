@@ -1,13 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { SetupPlan, SetupProgress } from '../../shared/types'
 import { bytes, speed as fmtSpeed } from './format'
-
-const STAGE_LABEL: Record<NonNullable<SetupProgress['stage']>, string> = {
-  downloading: 'Downloading',
-  verifying: 'Verifying',
-  extracting: 'Unpacking',
-  checking: 'Checking'
-}
+import { strings } from './strings'
 
 export default function SetupWizard({
   plan,
@@ -29,7 +23,7 @@ export default function SetupWizard({
       }
       if (event.phase === 'error') {
         setRunning(false)
-        setError(event.error ?? 'Setup failed.')
+        setError(event.error ?? strings.setup.failed)
       }
       if (event.phase === 'cancelled') setRunning(false)
     })
@@ -53,11 +47,10 @@ export default function SetupWizard({
     <div className="flex h-full items-center justify-center px-8">
       <div className="w-full max-w-lg">
         <h1 className="text-2xl font-semibold tracking-tight text-white">
-          Setting up <span className="text-accent-400">Tizo</span>
+          {strings.setup.title} <span className="text-accent-400">{strings.app.short}</span>
         </h1>
         <p className="mt-2 text-sm leading-relaxed text-white/50">
-          Tizo ships small and fetches the two pieces it cannot work without. This
-          happens once.
+          {strings.setup.intro}
         </p>
 
         <ul className="mt-6 flex flex-col gap-2">
@@ -71,7 +64,7 @@ export default function SetupWizard({
                   <span className="text-sm text-white/90">{c.name}</span>
                   {c.installed && (
                     <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-300">
-                      installed
+                      {strings.setup.installedBadge}
                     </span>
                   )}
                 </div>
@@ -88,7 +81,7 @@ export default function SetupWizard({
           <div className="mt-6">
             <div className="flex items-baseline justify-between text-sm">
               <span className="text-white/80">
-                {progress?.stage ? STAGE_LABEL[progress.stage] : 'Starting'}
+                {progress?.stage ? strings.setup.stages[progress.stage] : strings.setup.starting}
                 {progress?.componentName ? ` ${progress.componentName}` : ''}
               </span>
               <span className="font-mono text-xs text-white/40">{pct.toFixed(0)}%</span>
@@ -101,7 +94,8 @@ export default function SetupWizard({
             </div>
             <div className="mt-2 flex justify-between font-mono text-xs text-white/30">
               <span>
-                {bytes(progress?.receivedBytes ?? 0)} of {bytes(progress?.totalBytes ?? 0)}
+                {bytes(progress?.receivedBytes ?? 0)} {strings.progress.of}{' '}
+                {bytes(progress?.totalBytes ?? 0)}
               </span>
               <span>{fmtSpeed(progress?.speed ?? null)}</span>
             </div>
@@ -109,7 +103,7 @@ export default function SetupWizard({
               onClick={() => void window.tizo.cancelSetup()}
               className="mt-4 text-xs text-white/30 underline-offset-4 hover:text-white/60 hover:underline"
             >
-              Cancel
+              {strings.setup.cancel}
             </button>
           </div>
         ) : (
@@ -118,10 +112,10 @@ export default function SetupWizard({
               onClick={start}
               className="w-full rounded-lg bg-accent-500 px-5 py-3 text-sm font-medium text-white transition hover:bg-accent-400"
             >
-              Download and install — {bytes(plan.totalBytes)}
+              {strings.setup.start} — {bytes(plan.totalBytes)}
             </button>
             <p className="mt-3 text-center text-xs text-white/25">
-              Interrupted downloads resume where they stopped.
+              {strings.setup.resumeNote}
             </p>
           </div>
         )}
@@ -134,25 +128,24 @@ export default function SetupWizard({
                 onClick={start}
                 className="rounded-md border border-white/10 px-3 py-1.5 text-xs text-white/70 hover:bg-white/5"
               >
-                Try again
+                {strings.setup.retry}
               </button>
               <button
                 onClick={() => void manual()}
                 className="rounded-md border border-white/10 px-3 py-1.5 text-xs text-white/70 hover:bg-white/5"
               >
-                Install from a file instead
+                {strings.setup.manual}
               </button>
             </div>
             <p className="mt-2 text-[11px] leading-relaxed text-red-300/40">
-              Behind a proxy or a blocked network? Download the archive manually from
-              the releases page and point Tizo at it.
+              {strings.setup.manualHint}
             </p>
           </div>
         )}
 
         {plan.manifestSource !== 'remote' && (
           <p className="mt-4 text-center text-[11px] text-amber-300/50">
-            Using the {plan.manifestSource} component list — could not reach the registry.
+            {strings.setup.offlineRegistry(plan.manifestSource)}
           </p>
         )}
       </div>

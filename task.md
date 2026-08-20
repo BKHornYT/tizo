@@ -4,15 +4,24 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
 
 ## Now
 
-### Phase 3 — Core GUI
-- [ ] URL bar with paste + validation, video info card (title, thumb, duration)
-- [ ] Quality picker: short list inline + "All formats" expander (no global mode)
-- [ ] Save-location picker, progress cards w/ speed + ETA
-- [ ] Open-file / open-folder actions, settings screen
-- [ ] Settings: max speed (`-r`), folder-per-download, geo-bypass, file-exists rule
-- [ ] UI strings in one module from the start — i18n is cheap now, costly later
+### Phase 4 — Queue + playlists
+- [ ] Job queue with concurrency cap, pause/resume/retry, batch URL paste
+- [ ] Playlist/channel expansion with per-item selection
+- [ ] Drag & drop links onto the window
+- [ ] Download-all / clear-list, sortable queue columns
 
 ## Done this session
+
+### Phase 3 — Core GUI
+- [x] URL bar, video info card, empty state
+- [x] Quality picker: curated list + inline "All formats" expander
+- [x] Save-location picker, progress card w/ speed + ETA, reveal in folder
+- [x] Settings screen — speed limit, container, file-exists rule, concurrency,
+      folder-per-download, geo-bypass, component status, reset
+- [x] Settings reach yt-dlp via a pure `engine/args.ts` (29/29 assertions passing)
+- [x] File-collision handling — predict the name via yt-dlp, then skip/rename/ask
+- [x] Site profiles from the registry applied per download (impersonate, fragments)
+- [x] All UI copy centralised in `strings.ts`
 
 ### Phase 2 — Component manager + first-run setup
 - [x] Component manager: download → sha256 verify → unzip → activate
@@ -28,12 +37,6 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
       (`npm run test:essentials`, 10/10)
 
 ## Next
-
-### Phase 4 — Queue + playlists
-- [ ] Job queue with concurrency cap, pause/resume/retry, batch URL paste
-- [ ] Playlist/channel expansion with per-item selection
-- [ ] Drag & drop links onto the window
-- [ ] Download-all / clear-list, sortable queue columns
 
 ### Phase 5 — Audio + subtitles
 - [ ] MP3/M4A extraction w/ bitrate picker, thumbnail + metadata embed
@@ -72,8 +75,9 @@ _Nothing blocked._
 ## Open questions
 
 - Final app name — "Tizo" is a working title, must be settled before v1.0.0
-- i18n — ship English-only, but keep strings centralised so locales can be added
-  without a rewrite. Decide before Phase 3 UI work hardens.
+- i18n — strings are now centralised in `src/renderer/src/strings.ts`, so adding a
+  locale is a lookup swap rather than a rewrite. Whether to actually ship one is
+  still open.
 - Code signing — revisit once real users start hitting the SmartScreen warning
 
 ## Done

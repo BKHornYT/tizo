@@ -88,8 +88,9 @@ function shapeFormats(raw: RawFormat[]): FormatOption[] {
     const prog = progressive.filter((f) => f.height === h).sort((a, b) => (b.tbr ?? 0) - (a.tbr ?? 0))[0]
     const vid = videoOnly.filter((f) => f.height === h).sort((a, b) => (b.tbr ?? 0) - (a.tbr ?? 0))[0]
 
-    // A progressive stream at this height already carries audio, so no muxing —
-    // which is exactly why 720p works without the HQ pack and 1080p does not.
+    // A progressive stream at this height already carries audio, so no muxing.
+    // On YouTube exactly one such stream exists (360p), which is why almost
+    // every meaningful quality needs the HQ pack.
     const needsFfmpeg = !prog
     const best = vid ?? prog
     if (!best) continue
@@ -134,6 +135,37 @@ function shapeFormats(raw: RawFormat[]): FormatOption[] {
   return options
 }
 
+/**
+ * Every usable format, one row each, for the "All formats" expander.
+ *
+ * Unlike the curated list these use raw format ids, which is the point — this
+ * view exists for the person who wants one specific stream. Video-only rows get
+ * `+ba` appended so they still arrive with sound.
+ */
+function listAllFormats(raw: RawFormat[]): FormatOption[] {
+  return raw
+    .filter((f) => f.protocol !== 'mhtml' && (hasVideo(f) || hasAudio(f)))
+    .sort((a, b) => (b.height ?? 0) - (a.height ?? 0) || (b.tbr ?? 0) - (a.tbr ?? 0))
+    .map((f) => {
+      const videoOnly = hasVideo(f) && !hasAudio(f)
+      const audioOnly = !hasVideo(f) && hasAudio(f)
+      const label = audioOnly
+        ? `Audio ${f.abr ? `${Math.round(f.abr)}kbps` : ''}`.trim()
+        : `${f.height ? humanHeight(f.height) : 'Video'}${f.fps && f.fps >= 50 ? ` ${Math.round(f.fps)}fps` : ''}`
+      return {
+        id: videoOnly ? `${f.format_id}+ba/${f.format_id}` : f.format_id,
+        label: `${label} · ${f.format_id}`,
+        kind: audioOnly ? ('audio' as const) : ('video' as const),
+        height: f.height ?? null,
+        fps: f.fps ?? null,
+        ext: f.ext ?? 'mp4',
+        filesize: sizeOf(f),
+        needsFfmpeg: videoOnly,
+        ...(f.vcodec && f.vcodec !== 'none' ? { note: `${f.vcodec}${hasAudio(f) ? ` + ${f.acodec}` : ''}` } : {})
+      }
+    })
+}
+
 export async function probe(url: string): Promise<Result<MediaInfo>> {
   const bin = await resolveYtdlp()
   if (!bin.found || !bin.path) return { ok: false, error: binaryMissing('yt-dlp') }
@@ -163,7 +195,8 @@ export async function probe(url: string): Promise<Result<MediaInfo>> {
               thumbnail: info.thumbnail ?? null,
               webpageUrl: info.webpage_url ?? url,
               extractor: info.extractor_key ?? info.extractor ?? 'unknown',
-              formats: shapeFormats(info.formats ?? [])
+              formats: shapeFormats(info.formats ?? []),
+              allFormats: listAllFormats(info.formats ?? [])
             }
           })
         } catch {

@@ -34,8 +34,10 @@ file — and a week later gets a bugfix without doing anything.
 - **Works:** Electron shell, full yt-dlp engine (probe, download, progress,
   cancel, error classification), component manager with verified resume and
   integrity checking, first-run setup verified end to end against the published
-  assets, setup wizard UI, all three build targets configured
-- **In progress:** Phase 3 — core GUI
+  assets, setup wizard, and the core GUI — download and settings screens, format
+  picker with an inline all-formats expander, speed limit, geo-bypass,
+  folder-per-download, container choice and file-collision handling
+- **In progress:** Phase 4 — download queue and playlists
 - **Known broken / not started:** everything else. No yt-dlp wiring, no setup
   wizard, no real UI, no icons, no release pipeline
 
@@ -60,9 +62,13 @@ npm run typecheck    # tsc --noEmit
 npm run build        # bundles main + preload + renderer into out/
 npm run dist         # build + electron-builder → installer, portable, zip in dist/
 npm run dist:dir     # unpacked build, no installers — much faster for smoke tests
+npm test                # offline suite: typecheck + argument-builder assertions
 npm run test:fetcher    # network: resume, integrity, corrupt-part discard
 npm run test:essentials # network, ~92 MB: real installer against real published assets
 ```
+
+The network tests are deliberately not part of `npm test` — they pull ~92 MB and
+depend on GitHub being up. Run them when touching the component pipeline.
 
 No env vars or credentials needed yet. Publishing releases will need `GH_TOKEN`
 (Phase 9).
@@ -76,9 +82,14 @@ electron-builder.yml      NSIS + portable + zip, GitHub publish config
 tsconfig.json             one config covering main, preload and renderer
 src/main/index.ts         window creation, single-instance lock, IPC registration
 src/preload/index.ts      contextBridge; the ONLY main↔renderer surface
+src/main/engine/args.ts   pure yt-dlp argument builder — no electron, so it is testable
+src/main/store/settings.ts persisted settings, validated field-by-field on read
 src/main/components/      fetch (resumable) + verify + unzip — powers setup AND addons
 src/main/setup/           first-run orchestration and on-disk setup state
-src/renderer/src/         React + Tailwind GUI (App.tsx, SetupWizard.tsx, index.css)
+src/renderer/src/         React + Tailwind GUI — App shell, SetupWizard
+src/renderer/src/views/   Downloader and Settings screens
+src/renderer/src/strings.ts ALL user-visible copy; components must never hardcode text
+scripts/test-args.ts      offline assertions that settings reach the command line
 scripts/test-fetcher.ts   network test for the resume path
 scripts/test-essentials.ts real end-to-end install of the published components
 build/                    installer icons and branding (empty until Phase 8)
@@ -96,6 +107,16 @@ deliberately differ from the reference app.
 
 Newest first.
 
+- **2026-08-20 — All UI copy lives in `src/renderer/src/strings.ts`.** Tizo ships
+  English-only, but retrofitting i18n means touching every component whereas
+  swapping one module does not. Components must never hardcode user-visible text.
+- **2026-08-20 — Format choice is progressive disclosure, not a global mode.** The
+  reference app hides a Normal/Expert switch in settings; wanting one odd format
+  for one video should not mean changing an app-wide preference and remembering to
+  change it back. Short list inline, "All formats" expander beside it.
+- **2026-08-20 — File collisions default to skip, never to asking.** Prompting on
+  every collision punishes batch downloads, which is exactly when collisions
+  happen. Ask-every-time remains available.
 - **2026-08-20 — Mandatory first-run Essentials download (~110 MB).** Installer
   stays slim; the app is unusable until setup completes. *Why:* one honest setup
   step beats surprise popups mid-download. *Risk accepted:* a failed download

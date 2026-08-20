@@ -11,6 +11,36 @@ Newest first. One entry per change, using this format:
 
 ---
 
+## 2026-08-20 — Phase 3: core GUI, settings, and site tuning
+**What:** Built the real UI and the settings layer behind it. New `engine/args.ts`
+turns settings plus per-site registry tuning into a yt-dlp command line; it is pure
+and electron-free, so `scripts/test-args.ts` asserts on it directly (29/29).
+`store/settings.ts` persists settings and re-validates every field on read, because
+settings.json is user-writable and survives upgrades. The engine now applies speed
+limits, geo-bypass, container choice, folder-per-download, and per-site impersonation
+and fragment counts pulled from the registry. File collisions are handled by asking
+yt-dlp what it *would* name the file (`--print filename --skip-download`) and then
+skipping, auto-renaming, or prompting — guessing the name is not viable since yt-dlp
+applies its own sanitisation and picks the extension from the chosen format.
+Renderer split into `views/Downloader.tsx` and `views/SettingsView.tsx` behind a
+tabbed shell, with a `FormatPicker` that shows the curated list and expands inline to
+every raw stream. Probe now returns `allFormats` alongside the curated `formats`.
+**Why:** Phase 3 of the plan, plus the settings adopted from the reference app in
+docs/features.md.
+**Files:** src/main/engine/{args,download,probe}.ts, src/main/store/settings.ts,
+src/main/ipc.ts, src/preload/index.ts, src/shared/types.ts,
+src/renderer/src/{App.tsx,SetupWizard.tsx,strings.ts},
+src/renderer/src/views/{Downloader,SettingsView}.tsx,
+src/renderer/src/components/FormatPicker.tsx, scripts/test-args.ts, package.json,
+CLAUDE.md, task.md
+
+**Three deliberate departures from the reference app**, each recorded in
+docs/features.md: format choice is an inline expander rather than a global
+Normal/Expert mode buried in settings; collisions default to skipping rather than
+asking every time; and all copy lives in `strings.ts` so i18n stays a lookup swap
+instead of a rewrite. Also fixed a stale comment in probe.ts still claiming the
+no-ffmpeg ceiling was 720p.
+
 ## 2026-08-20 — Phase 2 verified end to end; repo public; commit email rewritten
 **What:** Made `BKHornYT/tizo` public so the component downloads and auto-update work
 without an embedded token. Refactored `components/install.ts` to take its target

@@ -1,5 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { cancelSetup, getSetupPlan, installComponentFromFile, runSetup } from './setup'
+import { loadSettings, resetSettings, saveSettings } from './store/settings'
+import type { Settings } from '../shared/types'
 import { engineStatus } from './engine/binaries'
 import { probe } from './engine/probe'
 import { cancelDownload, startDownload, type DownloadRequest } from './engine/download'
@@ -57,6 +59,14 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
     if (picked.canceled || !picked.filePaths[0]) return { ok: false, error: 'Cancelled.' }
     return installComponentFromFile(componentId, picked.filePaths[0])
   })
+
+  ipcMain.handle('settings:get', () => loadSettings())
+
+  ipcMain.handle('settings:set', (_e, patch: unknown) =>
+    saveSettings((patch ?? {}) as Partial<Settings>)
+  )
+
+  ipcMain.handle('settings:reset', () => resetSettings())
 
   ipcMain.handle('paths:downloadDir', () => defaultDownloadDir())
 

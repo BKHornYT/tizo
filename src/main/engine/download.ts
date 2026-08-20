@@ -1,13 +1,13 @@
-import { spawn, type ChildProcess } from 'node:child_process'
-import { mkdirSync } from 'node:fs'
+import { spawn, execFile, type ChildProcess } from 'node:child_process'
+import { existsSync, mkdirSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
-import { dirname } from 'node:path'
+import { dirname, extname } from 'node:path'
 import { resolveFfmpeg, resolveYtdlp } from './binaries'
 import { binaryMissing, classifyError } from './errors'
-import type { EngineError, ProgressEvent } from '../../shared/types'
-
-const PROGRESS_MARK = '@@TIZO@@'
-const FILE_MARK = '@@TIZOFILE@@'
+import { buildDownloadArgs, profileFor, FILE_MARK, PROGRESS_MARK, type SiteTuning } from './args'
+import { loadSettings } from '../store/settings'
+import { loadManifest } from '../components/manifest'
+import type { EngineError, ProgressEvent, Settings } from '../../shared/types'
 
 interface RawProgress {
   status?: string
@@ -24,9 +24,17 @@ export interface DownloadRequest {
   url: string
   /** A yt-dlp selector expression, from FormatOption.id. */
   format: string
-  outDir: string
   needsFfmpeg: boolean
+  /** Overrides the configured output folder for this one job. */
+  outDir?: string
+  /** Set after the user has answered a file-exists prompt. */
+  resolveConflict?: 'overwrite' | 'rename'
 }
+
+export type StartResult =
+  | { ok: true; jobId: string }
+  | { ok: false; error: EngineError }
+  | { ok: false; conflict: { path: string } }
 
 interface Job {
   child: ChildProcess
@@ -42,10 +50,7 @@ const jobs = new Map<string, Job>()
 function killTree(pid: number | undefined): void {
   if (!pid) return
   if (process.platform === 'win32') {
-    spawn('taskkill.exe', ['/pid', String(pid), '/T', '/F'], {
-      windowsHide: true,
-      stdio: 'ignore'
-    })
+    spawn('taskkill.exe', ['/pid', String(pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' })
   } else {
     try {
       process.kill(-pid, 'SIGKILL')
@@ -66,10 +71,63 @@ function lineReader(onLine: (line: string) => void): (chunk: Buffer) => void {
   }
 }
 
+/**
+ * Asks yt-dlp what it would name the file, without downloading it.
+ *
+ * Guessing the name ourselves is not viable — yt-dlp applies its own filename
+ * sanitisation and picks the extension from the chosen format. Only yt-dlp
+ * knows the answer, so we ask it rather than approximate.
+ */
+async function predictPath(
+  exe: string,
+  args: string[]
+): Promise<string | null> {
+  return new Promise((resolve) => {
+    execFile(
+      exe,
+      [...args.slice(0, -1), '--skip-download', '--print', 'filename', args[args.length - 1]!],
+      { timeout: 60_000, windowsHide: true, maxBuffer: 4 * 1024 * 1024 },
+      (err, stdout) => {
+        if (err) {
+          resolve(null)
+          return
+        }
+        const line = stdout
+          .split(/\r?\n/)
+          .map((l) => l.trim())
+          .filter((l) => l && !l.startsWith(FILE_MARK) && !l.startsWith(PROGRESS_MARK))
+          .pop()
+        resolve(line || null)
+      }
+    )
+  })
+}
+
+/** " (2)", " (3)", … until nothing is in the way. */
+function freeSuffix(predicted: string): string {
+  if (!existsSync(predicted)) return ''
+  const ext = extname(predicted)
+  const stem = predicted.slice(0, predicted.length - ext.length)
+  for (let n = 2; n < 1000; n++) {
+    if (!existsSync(`${stem} (${n})${ext}`)) return ` (${n})`
+  }
+  return ` (${Date.now()})`
+}
+
+async function siteProfile(url: string): Promise<SiteTuning | undefined> {
+  try {
+    // Never refresh here: a download must not wait on a registry round trip.
+    const { manifest } = await loadManifest({ refresh: false })
+    return profileFor(url, manifest.siteProfiles)
+  } catch {
+    return undefined
+  }
+}
+
 export async function startDownload(
   req: DownloadRequest,
   emit: (event: ProgressEvent) => void
-): Promise<{ ok: true; jobId: string } | { ok: false; error: EngineError }> {
+): Promise<StartResult> {
   const ytdlp = await resolveYtdlp()
   if (!ytdlp.found || !ytdlp.path) return { ok: false, error: binaryMissing('yt-dlp') }
 
@@ -86,38 +144,43 @@ export async function startDownload(
     }
   }
 
-  mkdirSync(req.outDir, { recursive: true })
+  const settings: Settings = await loadSettings()
+  const outDir = req.outDir ?? settings.outputDir
+  mkdirSync(outDir, { recursive: true })
 
-  const args = [
-    // A stray user-level yt-dlp.conf could silently change output paths or
-    // formats underneath us. Never inherit it.
-    '--ignore-config',
-    '--newline',
-    '--no-colors',
-    '--no-quiet',
-    '--no-playlist',
-    '--progress-template',
-    `download:${PROGRESS_MARK}%(progress)j`,
-    '--print',
-    `after_move:${FILE_MARK}%(filepath)s`,
-    '-f',
-    req.format,
-    '-P',
-    req.outDir,
-    // 150 *bytes*, not characters — long unicode titles otherwise blow past
-    // Windows' path limit once the folder is prepended.
-    '-o',
-    '%(title).150B [%(id)s].%(ext)s'
-  ]
+  const profile = await siteProfile(req.url)
+  const ffmpegDir = ffmpeg.path && ffmpeg.source === 'managed' ? dirname(ffmpeg.path) : null
 
-  if (req.needsFfmpeg) {
-    args.push('--merge-output-format', 'mp4')
-    if (ffmpeg.path && ffmpeg.source === 'managed') {
-      args.push('--ffmpeg-location', dirname(ffmpeg.path))
+  const effectiveRule = req.resolveConflict ?? settings.onFileExists
+  const base = {
+    url: req.url,
+    format: req.format,
+    outDir,
+    needsFfmpeg: req.needsFfmpeg,
+    profile,
+    ffmpegDir
+  }
+
+  let collisionSuffix: string | undefined
+  if (effectiveRule === 'rename' || effectiveRule === 'ask') {
+    const predicted = await predictPath(
+      ytdlp.path,
+      buildDownloadArgs({ ...base, settings })
+    )
+    if (predicted && existsSync(predicted)) {
+      if (effectiveRule === 'ask') return { ok: false, conflict: { path: predicted } }
+      collisionSuffix = freeSuffix(predicted)
     }
   }
 
-  args.push(req.url)
+  const args = buildDownloadArgs({
+    ...base,
+    settings: {
+      ...settings,
+      onFileExists: effectiveRule === 'ask' ? 'skip-if-same' : effectiveRule
+    },
+    collisionSuffix
+  })
 
   const jobId = randomUUID()
   const child = spawn(ytdlp.path, args, { windowsHide: true })
@@ -141,8 +204,7 @@ export async function startDownload(
       emit({
         jobId,
         status: raw.status === 'finished' ? 'processing' : 'downloading',
-        percent:
-          raw._percent ?? (total && downloaded ? (downloaded / total) * 100 : null),
+        percent: raw._percent ?? (total && downloaded ? (downloaded / total) * 100 : null),
         downloadedBytes: downloaded,
         totalBytes: total,
         speed: raw.speed ?? null,
@@ -179,10 +241,11 @@ export async function startDownload(
     if (stderr.length > 64_000) stderr = stderr.slice(-32_000)
   })
 
+  const done = (event: Omit<ProgressEvent, 'jobId'>): void => emit({ jobId, ...event })
+
   child.on('error', (err) => {
     jobs.delete(jobId)
-    emit({
-      jobId,
+    done({
       status: 'error',
       percent: null,
       downloadedBytes: null,
@@ -198,46 +261,29 @@ export async function startDownload(
     const job = jobs.get(jobId)
     jobs.delete(jobId)
 
-    if (job?.cancelled) {
-      emit({
-        jobId,
-        status: 'cancelled',
-        percent: null,
-        downloadedBytes: null,
-        totalBytes: null,
-        speed: null,
-        eta: null,
-        filename: lastFilename
-      })
-      return
-    }
-
-    if (code === 0) {
-      emit({
-        jobId,
-        status: 'done',
-        percent: 100,
-        downloadedBytes: null,
-        totalBytes: null,
-        speed: null,
-        eta: null,
-        filename: lastFilename,
-        ...(outputPath ? { outputPath } : {})
-      })
-      return
-    }
-
-    emit({
-      jobId,
-      status: 'error',
+    const blank = {
       percent: null,
       downloadedBytes: null,
       totalBytes: null,
       speed: null,
       eta: null,
-      filename: lastFilename,
-      error: classifyError(stderr, req.url)
-    })
+      filename: lastFilename
+    }
+
+    if (job?.cancelled) {
+      done({ status: 'cancelled', ...blank })
+      return
+    }
+    if (code === 0) {
+      done({
+        ...blank,
+        status: 'done',
+        percent: 100,
+        ...(outputPath ? { outputPath } : {})
+      })
+      return
+    }
+    done({ ...blank, status: 'error', error: classifyError(stderr, req.url) })
   })
 
   return { ok: true, jobId }

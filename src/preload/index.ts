@@ -4,6 +4,7 @@ import type {
   MediaInfo,
   ProgressEvent,
   Result,
+  Settings,
   SetupPlan,
   SetupProgress
 } from '../shared/types'
@@ -11,9 +12,15 @@ import type {
 export interface DownloadArgs {
   url: string
   format: string
-  outDir: string
   needsFfmpeg: boolean
+  outDir?: string
+  resolveConflict?: 'overwrite' | 'rename'
 }
+
+export type DownloadResult =
+  | { ok: true; jobId: string }
+  | { ok: false; error: { code: string; message: string } }
+  | { ok: false; conflict: { path: string } }
 
 /**
  * The entire main <-> renderer surface. The renderer has no filesystem access,
@@ -32,10 +39,15 @@ const api = {
 
   probe: (url: string): Promise<Result<MediaInfo>> => ipcRenderer.invoke('engine:probe', url),
 
-  download: (
-    args: DownloadArgs
-  ): Promise<{ ok: true; jobId: string } | { ok: false; error: { code: string; message: string } }> =>
+  download: (args: DownloadArgs): Promise<DownloadResult> =>
     ipcRenderer.invoke('engine:download', args),
+
+  getSettings: (): Promise<Settings> => ipcRenderer.invoke('settings:get'),
+
+  setSettings: (patch: Partial<Settings>): Promise<Settings> =>
+    ipcRenderer.invoke('settings:set', patch),
+
+  resetSettings: (): Promise<Settings> => ipcRenderer.invoke('settings:reset'),
 
   cancel: (jobId: string): Promise<boolean> => ipcRenderer.invoke('engine:cancel', jobId),
 
