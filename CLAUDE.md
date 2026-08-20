@@ -37,10 +37,13 @@ file — and a week later gets a bugfix without doing anything.
   assets, setup wizard, and the core GUI — download and settings screens, format
   picker with an inline all-formats expander, speed limit, geo-bypass,
   folder-per-download, container choice and file-collision handling, and a
-  queue-centred UI with concurrency, drag-and-drop and batch paste
-- **In progress:** Phase 4 — queue is built; playlist expansion still to come
-- **Known broken / not started:** everything else. No yt-dlp wiring, no setup
-  wizard, no real UI, no icons, no release pipeline
+  queue-centred UI with concurrency, drag-and-drop, batch paste, and playlist and
+  channel expansion with a per-item picker
+- **In progress:** Phase 4 nearly done — only sortable queue columns remain
+- **Known broken / not started:** no audio extraction or subtitles (Phase 5), no
+  clipboard watcher, history or tray (Phase 6), no playlist monitoring (6.5), no
+  optional addon gates (7), no icons or built installers (8), no release pipeline
+  or auto-update (9). The app has never been packaged — only run via `npm run dev`
 
 ## Stack
 
@@ -77,27 +80,38 @@ No env vars or credentials needed yet. Publishing releases will need `GH_TOKEN`
 ## File Structure
 
 ```
-components.json           runtime component registry — also bundled as the offline fallback
-electron.vite.config.ts   three build targets: main, preload, renderer
-electron-builder.yml      NSIS + portable + zip, GitHub publish config
-tsconfig.json             one config covering main, preload and renderer
-src/main/index.ts         window creation, single-instance lock, IPC registration
-src/preload/index.ts      contextBridge; the ONLY main↔renderer surface
-src/main/engine/args.ts   pure yt-dlp argument builder — no electron, so it is testable
+components.json            runtime component registry — also bundled as offline fallback
+electron.vite.config.ts    three build targets: main, preload, renderer
+electron-builder.yml       NSIS + portable + zip, GitHub publish config
+tsconfig.json              one config covering main, preload and renderer
+
+src/main/index.ts          window creation, single-instance lock, IPC registration
+src/main/ipc.ts            every channel the renderer can reach
+src/main/paths.ts          portable-aware data directory resolution
+src/main/engine/args.ts    pure yt-dlp argument builder — no electron, so it is testable
+src/main/engine/           binaries, probe (incl. playlists), download, error classes
+src/main/queue/            item state, probing, concurrency pump, playlist expansion
+src/main/components/       fetch (resumable) + verify + unzip — powers setup AND addons
+src/main/setup/            first-run orchestration and on-disk setup state
 src/main/store/settings.ts persisted settings, validated field-by-field on read
-src/main/components/      fetch (resumable) + verify + unzip — powers setup AND addons
-src/main/setup/           first-run orchestration and on-disk setup state
-src/renderer/src/         React + Tailwind GUI — App shell, SetupWizard
-src/main/queue/           job queue: probing, concurrency pump, per-item state
-src/renderer/src/views/   Queue (the main screen) and Settings
-src/renderer/src/strings.ts ALL user-visible copy; components must never hardcode text
-scripts/test-args.ts      offline assertions that settings reach the command line
-scripts/test-fetcher.ts   network test for the resume path
+
+src/preload/index.ts       contextBridge; the ONLY main↔renderer surface
+src/shared/types.ts        types shared across main, preload and renderer
+
+src/renderer/src/App.tsx   shell: setup gate, tabs, status pills
+src/renderer/src/views/    Queue (the main screen) and SettingsView
+src/renderer/src/components/  QueueRow, PlaylistPicker
+src/renderer/src/strings.ts   ALL user-visible copy; never hardcode text in a component
+
+scripts/test-args.ts       offline assertions that settings reach the command line
+scripts/test-fetcher.ts    network test for resume and integrity
 scripts/test-essentials.ts real end-to-end install of the published components
-build/                    installer icons and branding (empty until Phase 8)
-resources/                files packed into the app; resources/bin is gitignored
-docs/plan.md              the full build plan — phases, architecture, addon schema
-docs/features.md          feature set vs. the reference app — adopted, improved, skipped
+scripts/install-essentials.ts dev convenience: skip the first-run wizard
+
+build/                     installer icons and branding (empty until Phase 8)
+resources/                 files packed into the app; resources/bin is gitignored
+docs/plan.md               phases, architecture, component schema, test matrix
+docs/features.md           feature set vs. the reference app — taken, improved, skipped
 ```
 
 See [docs/plan.md](docs/plan.md) for architecture, the addon manifest format,

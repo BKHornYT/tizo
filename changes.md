@@ -11,6 +11,31 @@ Newest first. One entry per change, using this format:
 
 ---
 
+## 2026-08-20 — Documentation pass; removed an orphaned component
+**What:** Brought every `.md` back in line with the code. `docs/plan.md` got a real
+architecture tree (it still described folders that had since gained structure), a
+phase table with status markers, a test matrix, and two design notes that were only
+living in commit messages — that the queue *is* the app, and that there is no pause
+because Stop + Retry resumes from yt-dlp's `.part` file. `docs/features.md` gained
+per-feature status so it reads as a scoreboard rather than a wishlist, and records
+that the biggest thing taken from the reference was the list-shaped UI itself.
+`CLAUDE.md` got an accurate file tree and an honest "not started" list. `task.md` had
+grown two competing done-sections; consolidated into Now / Next / Done.
+**Why:** User asked for the docs to be brought up to date. Several files described
+the app as it was two phases ago, and a doc that is confidently wrong is worse than
+a missing one because the next session trusts it.
+**Files:** CLAUDE.md, task.md, docs/plan.md, docs/features.md
+(removed: src/renderer/src/components/FormatPicker.tsx)
+
+**Three inaccuracies found and fixed while checking, rather than papered over:**
+- `FormatPicker.tsx` was orphaned when the single-item view was deleted — nothing
+  imported it. Removed, and the feature note that described it as an "All formats
+  expander" now describes the per-row dropdown that actually exists.
+- `features.md` claimed the empty state was done, including a clipboard prompt that
+  is Phase 6 work. Downgraded to partial.
+- `task.md` still credited Phase 3 with a quality picker that no longer exists in
+  that form.
+
 ## 2026-08-20 — Playlist and channel expansion
 **What:** Adding a playlist or channel link now creates a playlist row rather than
 failing or silently grabbing one video. `inspectPlaylist()` lists entries via

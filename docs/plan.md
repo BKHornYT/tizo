@@ -21,20 +21,38 @@ Decisions locked 2026-08-20. See [CLAUDE.md](../CLAUDE.md) for the map.
 
 ```
 tizo/
-├─ src/main/          Electron main process (Node)
-│   ├─ engine/        yt-dlp process wrapper, progress parsing
-│   ├─ queue/         job queue, concurrency, pause/resume/retry
-│   ├─ components/    download/verify/unzip manager — powers setup AND addons
-│   ├─ setup/         first-run wizard orchestration
-│   ├─ update/        electron-updater + yt-dlp self-update
-│   └─ store/         settings + history (portable-aware paths)
-├─ src/preload/       contextBridge — the only main↔renderer surface
-├─ src/renderer/      React + Tailwind GUI
-└─ build/             icons, NSIS config, portable config
+├─ src/main/              Electron main process (Node)
+│   ├─ engine/
+│   │   ├─ args.ts        pure yt-dlp argument builder — no electron, so testable
+│   │   ├─ binaries.ts    resolve managed yt-dlp/ffmpeg (PATH fallback in dev only)
+│   │   ├─ probe.ts       -J metadata, format shaping, playlist detection
+│   │   ├─ download.ts    spawn, JSON progress parsing, tree-kill cancel
+│   │   └─ errors.ts      stderr -> 12 typed error codes
+│   ├─ queue/             item state, probing, concurrency pump
+│   ├─ components/        fetch (resumable) + verify + unzip — setup AND addons
+│   ├─ setup/             first-run orchestration and on-disk state
+│   ├─ update/            electron-updater + yt-dlp self-update   [Phase 9]
+│   └─ store/             settings (history lands in Phase 6)
+├─ src/preload/           contextBridge — the only main↔renderer surface
+├─ src/shared/types.ts    types shared by all three processes
+├─ src/renderer/src/
+│   ├─ views/             Queue (the main screen), SettingsView
+│   ├─ components/        QueueRow, PlaylistPicker
+│   └─ strings.ts         ALL user-visible copy
+└─ build/                 icons, NSIS config, portable config
 ```
 
 The renderer never touches the filesystem or spawns processes. Everything goes
 through typed IPC channels exposed in preload.
+
+**The queue is the app.** Every URL becomes a queue item, including a single
+link — there is no separate one-off download path. The first build had one, and
+it made batch use impossible while looking nothing like the reference app this
+is modelled on. See [features.md](features.md).
+
+**There is no pause.** yt-dlp resumes from its `.part` file, so Stop + Retry
+genuinely continues a transfer rather than restarting it. A separate pause
+concept would be a second name for the same thing.
 
 ## First-run Essentials bundle
 
@@ -163,20 +181,37 @@ install later via two triggers:
 
 Each phase ends in something runnable.
 
-| # | Phase | Ends with |
-|---|---|---|
-| 0 | Repo + scaffold | `npm run dev` opens an empty Electron window; repo on GitHub |
-| 1 | Download engine | Paste a URL in a dev panel, file lands on disk with live progress |
-| 2 | Component manager + setup wizard | Fresh install downloads Essentials, verifies, resumes after a killed connection, and refuses to proceed without them |
-| 3 | Core GUI | URL bar, format picker, progress cards, save location, settings |
-| 4 | Queue + playlists | Multiple/batch/playlist downloads, concurrency cap, pause/resume/retry |
-| 5 | Audio + subtitles | MP3/M4A with metadata + thumbnail, subtitle download/embed |
-| 6 | Clipboard + history | Clipboard watcher with toast, searchable history, re-download |
-| 7 | Optional addons | Registry-driven capability + domain gates on top of Phase 2's manager |
-| 8 | Build targets | NSIS installer + portable exe + zip, all three produced locally |
-| 9 | Release pipeline | GitHub Actions builds and publishes on tag; auto-update verified live |
+| # | Phase | Status | Ends with |
+|---|---|---|---|
+| 0 | Repo + scaffold | ✅ | `npm run dev` opens an Electron window; repo on GitHub |
+| 1 | Download engine | ✅ | Paste a URL, file lands on disk with live progress |
+| 2 | Component manager + setup | ✅ | Fresh install downloads Essentials, verifies, resumes after a killed connection, and refuses to proceed without them |
+| 3 | Core GUI | ✅ | Format picker, save location, settings that reach the command line |
+| 4 | Queue + playlists | ◑ | Batch, concurrency, drag-drop, playlist expansion. Sortable columns outstanding |
+| 5 | Audio + subtitles | ☐ | MP3/M4A with metadata + thumbnail, subtitle download/embed |
+| 6 | Clipboard + history | ☐ | Clipboard watcher, searchable history, tray on close |
+| 6.5 | Playlist monitoring | ☐ | Watch a playlist/channel; notify by default, auto-download opt-in |
+| 7 | Optional addons | ☐ | Registry-driven capability + domain gates on Phase 2's manager |
+| 8 | Build targets | ☐ | NSIS installer + portable exe + zip, all three produced locally |
+| 9 | Release pipeline | ☐ | GitHub Actions builds and publishes on tag; auto-update verified live |
 
 Phase 9 is the real proof: install v1.0.0, push v1.0.1, watch it update itself.
+
+## Tests
+
+No framework — the scripts are plain TypeScript run by node's type stripping,
+which is why `engine/args.ts` and `components/install.ts` deliberately import
+nothing from electron.
+
+| Command | Network | Covers |
+|---|---|---|
+| `npm test` | no | typecheck + 29 assertions that settings reach the yt-dlp command line |
+| `npm run test:fetcher` | yes | resume, integrity rejection, corrupt-part discard |
+| `npm run test:essentials` | yes, ~92 MB | the real installer against the real published components |
+
+`scripts/install-essentials.ts` is a developer convenience that installs the
+components straight into the app data folder, so a dev machine can skip the
+first-run wizard. It is not part of the shipped app.
 
 ## Legal note
 
