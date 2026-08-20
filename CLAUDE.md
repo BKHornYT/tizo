@@ -33,9 +33,9 @@ file — and a week later gets a bugfix without doing anything.
 
 - **Works:** Electron shell, full yt-dlp engine (probe, download, progress,
   cancel, error classification), component manager with verified resume and
-  integrity checking, first-run setup wizard, all three build targets configured
-- **In progress:** Phase 2 — component manager built and tested; blocked on repo
-  visibility for the real ffmpeg download (see task.md Blocked)
+  integrity checking, first-run setup verified end to end against the published
+  assets, setup wizard UI, all three build targets configured
+- **In progress:** Phase 3 — core GUI
 - **Known broken / not started:** everything else. No yt-dlp wiring, no setup
   wizard, no real UI, no icons, no release pipeline
 
@@ -60,7 +60,8 @@ npm run typecheck    # tsc --noEmit
 npm run build        # bundles main + preload + renderer into out/
 npm run dist         # build + electron-builder → installer, portable, zip in dist/
 npm run dist:dir     # unpacked build, no installers — much faster for smoke tests
-npm run test:fetcher # hits the network: verifies resume, integrity, corrupt-part discard
+npm run test:fetcher    # network: resume, integrity, corrupt-part discard
+npm run test:essentials # network, ~92 MB: real installer against real published assets
 ```
 
 No env vars or credentials needed yet. Publishing releases will need `GH_TOKEN`
@@ -78,7 +79,8 @@ src/preload/index.ts      contextBridge; the ONLY main↔renderer surface
 src/main/components/      fetch (resumable) + verify + unzip — powers setup AND addons
 src/main/setup/           first-run orchestration and on-disk setup state
 src/renderer/src/         React + Tailwind GUI (App.tsx, SetupWizard.tsx, index.css)
-scripts/test-fetcher.ts   network test for the resume path; run via npm run test:fetcher
+scripts/test-fetcher.ts   network test for the resume path
+scripts/test-essentials.ts real end-to-end install of the published components
 build/                    installer icons and branding (empty until Phase 8)
 resources/                files packed into the app; resources/bin is gitignored
 docs/plan.md              the full build plan — phases, architecture, addon schema
@@ -153,9 +155,15 @@ Newest first.
   from `'./index'` resolved to *itself*, silently killing the `Window.tizo` type.
   Global declarations live in `src/renderer/src/env.d.ts` instead.
 - **TypeScript 6 removed `baseUrl`.** Path aliases must be relative (`./src/...`).
-- **No TS parameter properties in `src/main/components/fetcher.ts`.** It is run
-  directly by `node --experimental-strip-types` in the test script, and strip-only
-  mode rejects `constructor(private readonly x)`. Write those fields longhand.
+- **`ffprobe` takes `-version`, not `--version`.** The ffmpeg family uses one
+  dash, yt-dlp uses two. Guessing the flag from a filename prefix made every HQ
+  Pack install fail at the final execution check with a message blaming
+  antivirus. The verifier now tries both spellings. Caught only because the test
+  runs the real installer — a mocked one would have shipped this.
+- **No TS parameter properties in `src/main/components/fetcher.ts` or `install.ts`.** It is run
+  directly by `node --experimental-strip-types` in the test scripts, and
+  strip-only mode rejects `constructor(private readonly x)`. Write those fields
+  longhand, and give their runtime imports explicit `.ts` extensions.
 - **Without ffmpeg, YouTube caps at 360p — not 720p.** Measured 2026-08-20: a
   YouTube video exposes 37 video-only formats and exactly *one* progressive
   (audio+video) stream, at 360p. Everything above that must be muxed. This is

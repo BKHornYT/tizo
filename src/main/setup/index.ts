@@ -73,6 +73,7 @@ export async function runSetup(emit: (progress: SetupProgress) => void): Promise
     for (const spec of specs) {
       await installComponent(
         spec,
+        binDir(),
         (p) => {
           const done = completedBytes + p.receivedBytes
           emit({
@@ -137,7 +138,7 @@ export async function installComponentFromFile(
   const spec = findComponent(manifest, componentId)
   if (!spec) return { ok: false, error: `Unknown component "${componentId}".` }
   try {
-    await installFromFile(spec, zipPath)
+    await installFromFile(spec, zipPath, binDir())
     await recordInstalled(spec.id, spec.version)
     const plan = await getSetupPlan()
     if (!plan.required) await markComplete(manifest.essentials.version)

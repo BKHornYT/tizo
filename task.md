@@ -4,6 +4,16 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
 
 ## Now
 
+### Phase 3 — Core GUI
+- [ ] URL bar with paste + validation, video info card (title, thumb, duration)
+- [ ] Quality picker: short list inline + "All formats" expander (no global mode)
+- [ ] Save-location picker, progress cards w/ speed + ETA
+- [ ] Open-file / open-folder actions, settings screen
+- [ ] Settings: max speed (`-r`), folder-per-download, geo-bypass, file-exists rule
+- [ ] UI strings in one module from the start — i18n is cheap now, costly later
+
+## Done this session
+
 ### Phase 2 — Component manager + first-run setup
 - [x] Component manager: download → sha256 verify → unzip → activate
 - [x] Resumable transfers (HTTP range), retry with backoff, corrupt-part discard
@@ -14,17 +24,10 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
 - [x] Setup state written only after the binary verifiably *executes*
 - [x] Registry manifest with cache + bundled fallback so an outage cannot brick setup
 - [x] Network test for resume/integrity (`npm run test:fetcher`) — 5/5 passing
-- [ ] **Blocked:** end-to-end setup run — needs the repo public (see Blocked)
+- [x] End-to-end install verified against the live registry and published assets
+      (`npm run test:essentials`, 10/10)
 
 ## Next
-
-### Phase 3 — Core GUI
-- [ ] URL bar with paste + validation, video info card (title, thumb, duration)
-- [ ] Quality picker: short list inline + "All formats" expander (no global mode)
-- [ ] Save-location picker, progress cards w/ speed + ETA
-- [ ] Open-file / open-folder actions, settings screen
-- [ ] Settings: max speed (`-r`), folder-per-download, geo-bypass, file-exists rule
-- [ ] UI strings in one module from the start — i18n is cheap now, costly later
 
 ### Phase 4 — Queue + playlists
 - [ ] Job queue with concurrency cap, pause/resume/retry, batch URL paste
@@ -64,11 +67,7 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
 
 ## Blocked
 
-- **End-to-end first-run setup.** The ffmpeg asset lives in a private repo, so
-  both the release download and the raw `components.json` fetch return 404
-  without auth. Everything else in Phase 2 is verified; this last step needs
-  `BKHornYT/tizo` to be public. Awaiting the user's call — the plan always had
-  it going public before release, this only changes the timing.
+_Nothing blocked._
 
 ## Open questions
 

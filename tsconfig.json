@@ -11,6 +11,9 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
+    // Lets scripts/*.ts run under `node --experimental-strip-types`, which is
+    // plain ESM and therefore requires explicit file extensions on imports.
+    "allowImportingTsExtensions": true,
     "skipLibCheck": true,
     "noEmit": true,
     "paths": {

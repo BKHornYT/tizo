@@ -2,11 +2,10 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { existsSync } from 'node:fs'
 import { copyFile, mkdir, mkdtemp, rm, readdir, stat } from 'node:fs/promises'
-import { join, basename } from 'node:path'
+import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import extract from 'extract-zip'
-import { binDir } from '../paths'
-import { fetchFile, type FetchProgress } from './fetcher'
+import { fetchFile, type FetchProgress } from './fetcher.ts'
 import type { ComponentSpec } from './manifest'
 
 const execFileAsync = promisify(execFile)
@@ -37,31 +36,45 @@ async function findFile(root: string, name: string): Promise<string | null> {
  * passes, so a half-broken install re-runs rather than pretending to be ready.
  */
 async function verifyRuns(exePath: string): Promise<boolean> {
-  const args = basename(exePath).toLowerCase().startsWith('ffmpeg') ? ['-version'] : ['--version']
-  try {
-    await execFileAsync(exePath, args, { timeout: 20_000, windowsHide: true })
-    return true
-  } catch {
-    return false
+  // Both spellings are tried rather than guessed from the filename. The ffmpeg
+  // family takes a single dash (`-version`) and yt-dlp takes two, and guessing
+  // from a name prefix got ffprobe wrong — which failed every HQ Pack install
+  // at the final step, with a message blaming antivirus.
+  for (const arg of ['-version', '--version']) {
+    try {
+      await execFileAsync(exePath, [arg], { timeout: 20_000, windowsHide: true })
+      return true
+    } catch {
+      /* try the other spelling */
+    }
   }
+  return false
 }
 
 export class InstallError extends Error {
-  constructor(
-    message: string,
-    readonly stage: InstallProgress['stage']
-  ) {
+  // Longhand field, not a constructor parameter property — see the note on
+  // FetchError. This module is executed directly by the test script under
+  // `node --experimental-strip-types`, which rejects parameter properties.
+  stage: InstallProgress['stage']
+
+  constructor(message: string, stage: InstallProgress['stage']) {
     super(message)
     this.name = 'InstallError'
+    this.stage = stage
   }
 }
 
+/**
+ * `target` is injected rather than read from the app's paths module so this file
+ * imports nothing from electron — which is what lets scripts/test-essentials.ts
+ * exercise the real installer against the real assets, outside a running app.
+ */
 export async function installComponent(
   spec: ComponentSpec,
+  target: string,
   onProgress: (progress: InstallProgress) => void,
   signal?: AbortSignal
 ): Promise<void> {
-  const target = binDir()
   await mkdir(target, { recursive: true })
 
   const scratch = await mkdtemp(join(tmpdir(), 'tizo-'))
@@ -113,8 +126,11 @@ export async function installComponent(
 }
 
 /** Installing from a hand-downloaded zip — the offline escape hatch. */
-export async function installFromFile(spec: ComponentSpec, zipPath: string): Promise<void> {
-  const target = binDir()
+export async function installFromFile(
+  spec: ComponentSpec,
+  zipPath: string,
+  target: string
+): Promise<void> {
   await mkdir(target, { recursive: true })
   const scratch = await mkdtemp(join(tmpdir(), 'tizo-'))
   try {

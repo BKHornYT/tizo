@@ -11,6 +11,34 @@ Newest first. One entry per change, using this format:
 
 ---
 
+## 2026-08-20 — Phase 2 verified end to end; repo public; commit email rewritten
+**What:** Made `BKHornYT/tizo` public so the component downloads and auto-update work
+without an embedded token. Refactored `components/install.ts` to take its target
+directory as an argument instead of importing the app's paths module, which removed
+its last electron dependency and made it directly testable. Added
+`scripts/test-essentials.ts`, which installs the real published components from the
+live registry and executes them — 10/10 passing.
+**Why:** Phase 2 was otherwise unverifiable: a private repo 404s both the release
+asset and the raw manifest. Testing the real installer against real assets (rather
+than a mock) was the point, and it immediately earned its keep.
+**Files:** src/main/components/install.ts, src/main/setup/index.ts,
+scripts/test-essentials.ts, tsconfig.json, package.json, CLAUDE.md, task.md
+
+**The test caught a shipping-blocker bug.** `verifyRuns` picked its version flag from
+the filename prefix, so `ffprobe.exe` was probed with `--version` — which it does not
+accept. Every HQ Pack install would have failed at the final execution check, showing
+users a message blaming their antivirus. It now tries both spellings. A mocked test
+would have sailed straight past this.
+
+**Commit email rewritten.** The three existing commits carried a work address; the
+user asked for it not to be published. Repo was switched back to private within about
+a minute, all commits rewritten to `boysgunsmoke@gmail.com` via filter-branch,
+force-pushed, and the `refs/original/` and stash refs that filter-branch leaves behind
+were deleted with reflogs expired and a gc. `git config user.email` is now pinned in
+this repo so future commits cannot regress. Caveat recorded: GitHub can retain
+unreferenced objects after a force-push, reachable only by someone who already knows
+the old SHAs.
+
 ## 2026-08-20 — Phase 2: component manager and first-run setup
 **What:** Built the download → verify → unzip → activate pipeline that powers both
 first-run setup and later addons. `components/fetcher.ts` does resumable HTTP-range
