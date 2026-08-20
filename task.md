@@ -24,8 +24,8 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
 - [x] `electron-updater` wired: launch + 6-hourly checks, install on quit
 - [x] Weekly yt-dlp engine channel, independent of app releases
 - [x] Self-update disabled with a stated reason in dev and portable builds
-- [ ] **Unproven:** auto-update has never run against a real release — needs
-      Phase 8 packaging first
+- [x] Proven end to end — an installed copy found, downloaded and applied a real
+      release (confirmed by the user on 2026-08-20)
 
 ### Suggestions, reports and usage counting ✅
 - [x] GitHub issue templates: site request, suggestion, bug

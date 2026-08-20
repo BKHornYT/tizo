@@ -47,10 +47,12 @@ file — and a week later gets a bugfix without doing anything.
   release
 - **Known broken / not started:** no audio extraction or subtitles (Phase 5), no
   clipboard *watcher* or history or tray (Phase 6), no playlist monitoring (6.5),
-  no optional addon gates (7), no icons or built installers (8), no CI release
-  pipeline (9). **The app has never been packaged** — only run via `npm run dev`,
-  so auto-update is wired but unproven end to end; it needs a real signed-ish
-  release to test against.
+  no optional addon gates or Auth Pack (7).
+- **Not deployed:** the usage endpoint in `server/`. Nothing is collected until it
+  is deployed and `TIZO_STATS_ENDPOINT` is set — the client short-circuits without
+  it. See [server/README.md](server/README.md).
+- **Unsigned:** every install shows a SmartScreen warning until a certificate
+  exists.
 
 ## Stack
 
@@ -76,6 +78,7 @@ npm run dist:dir     # unpacked build, no installers — much faster for smoke t
 npm test                # offline suite: typecheck + argument and format assertions
 npm run test:fetcher    # network: resume, integrity, corrupt-part discard
 npm run test:essentials # network, ~92 MB: real installer against real published assets
+npm run icon            # regenerate build/icon.ico from build/iconsrc/
 ```
 
 The network tests are deliberately not part of `npm test` — they pull ~92 MB and
@@ -111,17 +114,21 @@ src/main/store/settings.ts persisted settings, validated field-by-field on read
 src/preload/index.ts       contextBridge; the ONLY main↔renderer surface
 src/shared/types.ts        types shared across main, preload and renderer
 
-src/renderer/src/App.tsx   shell: setup gate, tabs, status pills
+src/renderer/src/App.tsx   shell: terms + setup gates, toolbar, update banner
+src/renderer/src/SetupWizard.tsx  first-run Essentials download
 src/renderer/src/views/    Queue (the main screen) and SettingsView
 src/renderer/src/components/  QueueRow, PlaylistPicker, Icon, FeedbackDialog
 src/renderer/src/TermsScreen.tsx  first-run terms gate
 src/renderer/src/terms.ts     the terms copy itself
 src/renderer/src/strings.ts   ALL user-visible copy; never hardcode text in a component
+src/renderer/src/format.ts    byte, speed and duration formatting
 
 scripts/test-args.ts       offline assertions that settings reach the command line
+scripts/test-formats.ts    offline assertions on format shaping (generic/YouTube/HLS)
 scripts/test-fetcher.ts    network test for resume and integrity
 scripts/test-essentials.ts real end-to-end install of the published components
 scripts/install-essentials.ts dev convenience: skip the first-run wizard
+scripts/build-icon.mjs     assembles build/iconsrc/*.png into build/icon.ico
 
 build/icon.ico             app icon, 7 sizes; regenerate with `npm run icon`
 build/iconsrc/             the PNGs it is built from — checked in on purpose

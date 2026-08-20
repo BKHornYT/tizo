@@ -92,7 +92,21 @@ supports both, per playlist: *notify* (default — shows what's new, you pick) o
 
 ## Where we are simply ahead
 
-Not from the reference, already in the plan: the portable USB build, the
-on-demand component system, sha256-verified installs, and the domain-gate
-request pipeline that turns an unsupported site into a tracked issue rather than
-a dead end.
+Nothing here comes from the reference app. All of it ships as of v0.0.4.
+
+| | Why it matters |
+|---|---|
+| **Bot-wall retry** | A Cloudflare 403 is detected and retried with browser impersonation, then the same route is reused for the download. Sites that simply fail elsewhere work here |
+| **Page scanning** | When no extractor matches, the page is scanned for `<video>`, `og:video`, `contentUrl` and inline media — the inspector trick, automated. Candidates are HEAD-verified so a poster image never becomes a broken download |
+| **Three update channels** | The app, the yt-dlp engine, and the component registry all update independently. A site breaking does not wait on an app release |
+| **Portable USB build** | Data folder lives beside the exe, so a stick carries the whole working app. Self-update is disabled there *with a stated reason* rather than silently failing |
+| **Verified component installs** | sha256 checked, then the binary is actually executed — a matching hash still misses an AV quarantine |
+| **Resumable mandatory setup** | An interrupted 92 MB download continues rather than restarting, and setup state is written only after the binary runs |
+| **Request pipeline** | A failing site offers a prefilled GitHub issue with URLs and paths stripped, rather than dead-ending |
+| **Honest telemetry** | Opt-in, and split into two streams sharing no key, so machine counts and site popularity are answerable while "what does this machine download" is not |
+
+## Still to build
+
+Phase 5 onward: audio extraction and subtitles, clipboard watching, history, tray,
+playlist monitoring, and the optional addon gates including the Auth Pack. See
+[../task.md](../task.md).
