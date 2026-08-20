@@ -11,6 +11,23 @@ Newest first. One entry per change, using this format:
 
 ---
 
+## 2026-08-20 — First packaged build
+**What:** `npm run dist` now produces all three Windows targets: NSIS installer
+(99.1 MB), portable exe (98.9 MB) and zip (138.7 MB), carrying the new app icon.
+**Why:** The app had only ever run under `npm run dev`; nothing about packaging was
+proven.
+**Files:** dist/ (untracked), electron-builder.yml, build/icon.ico
+
+**Size correction.** The plan estimated a ~50 MB slim installer. It is 99 MB —
+Electron's runtime is the floor and there is little to trim. First-run total is
+about 190 MB including the Essentials download. Corrected in `docs/plan.md` and
+noted in Gotchas; better to state it on a download page than surprise people.
+
+**Still unproven:** neither the installer nor the portable exe has been run. The
+portable path in particular needs checking — its data directory should land beside
+the exe, and the updater should show a banner rather than attempt to replace a
+running exe.
+
 ## 2026-08-20 — Suggestions, site reports, usage counting, terms gate, app icon
 **What:** Five things.
 1. **Feedback pipeline.** GitHub issue templates for site requests, suggestions and

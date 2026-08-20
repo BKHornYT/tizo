@@ -42,7 +42,8 @@ file — and a week later gets a bugfix without doing anything.
   the update system (app + engine channels, version in the toolbar), a first-run
   terms gate, GitHub-backed suggestions and site reports, opt-in usage counting,
   and a custom app icon
-- **In progress:** Phase 8 — packaging. Icon done; installer build in progress
+- **In progress:** Phase 8 — all three targets build; none yet run from a packaged
+  install
 - **Known broken / not started:** no audio extraction or subtitles (Phase 5), no
   clipboard *watcher* or history or tray (Phase 6), no playlist monitoring (6.5),
   no optional addon gates (7), no icons or built installers (8), no CI release
@@ -255,6 +256,10 @@ Newest first.
   directly by `node --experimental-strip-types` in the test scripts, and
   strip-only mode rejects `constructor(private readonly x)`. Write those fields
   longhand, and give their runtime imports explicit `.ts` extensions.
+- **The installer is ~99 MB, not the ~50 MB the plan estimated.** Electron's
+  runtime is the floor and there is little to trim. First-run total is therefore
+  about 190 MB (99 MB installer + 92 MB Essentials), which is worth stating plainly
+  on any download page rather than surprising people mid-setup.
 - **Without ffmpeg, YouTube caps at 360p — not 720p.** Measured 2026-08-20: a
   YouTube video exposes 37 video-only formats and exactly *one* progressive
   (audio+video) stream, at 360p. Everything above that must be muxed. This is

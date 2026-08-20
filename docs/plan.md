@@ -9,7 +9,7 @@ Decisions locked 2026-08-20. See [CLAUDE.md](../CLAUDE.md) for the map.
 | Stack | Electron + React + Tailwind, main process in Node |
 | Platform | Windows only (code stays cross-platform for later) |
 | Update + addon hosting | GitHub Releases, repo `BKHornYT/tizo` |
-| Installer size | Slim (~50 MB) |
+| Installer size | ~99 MB — Electron's runtime is the floor; the ~50 MB estimate was wrong |
 | First run | **Mandatory** Essentials download (~110 MB) before the app is usable |
 | Bundle source | Hybrid — self-hosted zip + live yt-dlp from upstream |
 | Distribution | NSIS installer **and** portable single-exe (USB) **and** zip |
@@ -195,7 +195,7 @@ Each phase ends in something runnable.
 | 6 | Clipboard + history | ☐ | Clipboard watcher, searchable history, tray on close |
 | 6.5 | Playlist monitoring | ☐ | Watch a playlist/channel; notify by default, auto-download opt-in |
 | 7 | Optional addons | ☐ | Registry-driven capability + domain gates on Phase 2's manager |
-| 8 | Build targets | ☐ | NSIS installer + portable exe + zip, all three produced locally |
+| 8 | Build targets | ◑ | All three build (99 MB installer, 99 MB portable, 139 MB zip). None yet run from a packaged install |
 | 9 | Release pipeline | ☐ | GitHub Actions builds and publishes on tag; auto-update verified live |
 
 Phase 9 is the real proof: install v1.0.0, push v1.0.1, watch it update itself.
