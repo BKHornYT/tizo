@@ -96,7 +96,10 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
 - [x] Build-time inlining fixed, verified in `out/`
 - [x] Stats upload tested end to end against the real Worker
 - [x] Version bumped, `test:stats` added to `npm test`
-- [ ] Tag `v0.0.5` and let CI publish
+- [x] Tagged `v0.0.5`; CI published setup, portable, zip, blockmap and
+      `latest.yml`, not a draft
+- [x] Confirmed the endpoint is inside the shipped `app.asar` — the one check
+      the original bug would have failed
 
 ### Phase 5 — Audio + subtitles  ← NEXT
 - [ ] MP3/M4A extraction w/ bitrate picker, thumbnail + metadata embed

@@ -33,6 +33,13 @@ uuid and no site data; opting out uploads nothing while still counting locally;
 real payloads and D1 held `youtube.com: 1`, `vimeo.com: 1` and one install at
 `9.9.9-test`. Test rows deleted afterwards — the database is back to zeros.
 
+**Verified in the shipped artifact, not just locally.** Downloaded the published
+`tizo-0.0.5-x64.zip`, read `resources/app.asar` out of it and found
+`const ENDPOINT = "https://tizo-stats.itemhunt-analytics.workers.dev"`. That is
+the check the original bug would have failed: everything upstream of the binary
+looked correct for four releases. Release is published (not a draft) with setup,
+portable, zip, blockmap and `latest.yml`.
+
 **Anyone updating from 0.0.4 starts uploading without a new prompt.** Accepting
 the terms sets `shareStats: true`, and those terms already describe exactly this:
 a per-site count with no identifier, plus a separate install ping. So the consent
