@@ -64,6 +64,57 @@ function humanHeight(h: number): string {
 }
 
 /**
+ * The raw fields an extractor can put at the top level instead of in `formats`.
+ *
+ * A simple extractor — most plugins, and plenty of built-ins — returns one URL
+ * and describes it here rather than building a list.
+ */
+export interface RawSingle {
+  formats?: RawFormat[]
+  url?: string
+  format_id?: string
+  ext?: string
+  height?: number | null
+  fps?: number | null
+  vcodec?: string
+  acodec?: string
+  filesize?: number | null
+  filesize_approx?: number | null
+  tbr?: number | null
+  abr?: number | null
+  protocol?: string
+}
+
+/**
+ * The format list to shape, whether the extractor built one or not.
+ *
+ * `formats` is absent whenever an extractor returns a single URL, and reading it
+ * blindly yields an empty list — which produces a queue row with nothing to
+ * download while the extractor has already found the file. That is the same
+ * failure v0.0.3 fixed for codec states, arriving by a different route, and it is
+ * how every plugin-served site would have looked.
+ */
+export function rawFormatsOf(info: RawSingle): RawFormat[] {
+  if (Array.isArray(info.formats) && info.formats.length > 0) return info.formats
+  if (!info.url) return []
+  return [
+    {
+      format_id: info.format_id ?? '0',
+      ...(info.ext === undefined ? {} : { ext: info.ext }),
+      ...(info.height === undefined ? {} : { height: info.height }),
+      ...(info.fps === undefined ? {} : { fps: info.fps }),
+      ...(info.vcodec === undefined ? {} : { vcodec: info.vcodec }),
+      ...(info.acodec === undefined ? {} : { acodec: info.acodec }),
+      ...(info.filesize === undefined ? {} : { filesize: info.filesize }),
+      ...(info.filesize_approx === undefined ? {} : { filesize_approx: info.filesize_approx }),
+      ...(info.tbr === undefined ? {} : { tbr: info.tbr }),
+      ...(info.abr === undefined ? {} : { abr: info.abr }),
+      ...(info.protocol === undefined ? {} : { protocol: info.protocol })
+    }
+  ]
+}
+
+/**
  * Turns yt-dlp's raw format list (often 30+ entries of near-duplicates) into a
  * short list a person can actually choose from.
  *

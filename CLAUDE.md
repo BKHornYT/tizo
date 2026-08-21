@@ -343,6 +343,14 @@ Newest first.
 
 ## Gotchas
 
+- **`formats` is absent whenever an extractor returns a single URL.** Most
+  plugins and plenty of built-ins describe one file at the top level instead of
+  building a list, so `info.formats ?? []` yields nothing and the row renders with
+  no download while the extractor has already found the file. `rawFormatsOf()`
+  synthesises the single format; guarded by `npm run test:formats`. This is the
+  v0.0.3 failure arriving by a second route — a working extraction can still
+  produce an empty picker, so check the *shaped* rows, never just the probe.
+
 - **`--extractor-args generic:impersonate` only reaches the *generic* extractor.**
   A named extractor — including one from a plugin — never sees it and keeps
   returning 403 behind a bot wall. `--impersonate <target>` applies to the

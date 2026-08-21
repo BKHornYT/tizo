@@ -11,6 +11,33 @@ Newest first. One entry per change, using this format:
 
 ---
 
+## 2026-08-21 — v0.0.8: a single-URL extractor produced no downloadable row
+**What:** An extractor that returns one top-level `url` has no `formats` array at
+all, and the probe read `info.formats ?? []` — so shaping produced zero rows and
+the queue offered nothing to download, despite extraction having succeeded.
+`rawFormatsOf()` now synthesises the single format from the top-level fields.
+**Why:** Caught while checking whether the new plugin route would actually work
+in the app rather than only on the command line. It would not have.
+**Files:** src/main/engine/{formats,probe}.ts, scripts/test-formats.ts,
+package.json, CLAUDE.md, task.md
+
+**This is the v0.0.3 bug by a different route.** That one discarded a real file
+because a codec field had three states and the filter knew two. This one discards
+it because the file is described somewhere the code was not reading. Both end the
+same way: a queue row with nothing to download while yt-dlp has already found the
+video. The lesson is that a successful probe proves nothing — check the *shaped*
+rows.
+
+**Verified against the real payload**, not a fixture: the actual probe output that
+had produced zero rows now produces one, "Original quality", correctly flagged as
+not needing the HQ pack. Six new assertions cover the single-URL shape, including
+that a genuine `formats` list still takes precedence and that a single top-level
+*stream* is still flagged as needing ffmpeg.
+
+**Every plugin-served site would have hit this**, since a small extractor almost
+never builds a format list — so it would have looked like the whole plugin route
+was broken.
+
 ## 2026-08-21 — The plugin route works: a site with no source in its HTML
 **What:** Wrote a yt-dlp extractor plugin for an embed-host family, shipped it in
 `resources/plugins/`, and made the app install it into

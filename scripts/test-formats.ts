@@ -8,7 +8,12 @@
  * the same as "codec absent". That discarded the only format, so the queue row had
  * nothing to download even though yt-dlp had already found the mp4.
  */
-import { shapeFormats, listAllFormats, type RawFormat } from '../src/main/engine/formats.ts'
+import {
+  shapeFormats,
+  listAllFormats,
+  rawFormatsOf,
+  type RawFormat
+} from '../src/main/engine/formats.ts'
 
 let failures = 0
 function ok(label: string, pass: boolean, detail = ''): void {
@@ -111,6 +116,34 @@ ok(
   new Set(shapeFormats(withAudio).map((f) => f.id)).size === shapeFormats(withAudio).length
 )
 ok('extraction rows carry a selector distinct from their id', mp3?.selector === 'ba/b')
+
+// --- An extractor that returns one URL and no formats list -----------------
+/*
+ * Most plugins do this, and so do plenty of built-in extractors: one `url` at the
+ * top level, no `formats` array at all. Reading `formats` blindly gives an empty
+ * list, so the row renders with nothing to download while the extractor has
+ * already found the file — the v0.0.3 failure arriving by another route.
+ */
+const single = rawFormatsOf({ url: 'https://cdn.example/v.mp4', ext: 'mp4', protocol: 'https' })
+ok('a single top-level url becomes one format', single.length === 1, String(single.length))
+ok('it is offered as a download', shapeFormats(single).length === 1)
+ok(
+  'and does not claim to need the HQ pack',
+  shapeFormats(single)[0]?.needsFfmpeg === false
+)
+ok(
+  'a single top-level stream does need it',
+  shapeFormats(rawFormatsOf({ url: 'https://cdn.example/x', protocol: 'm3u8_native' }))[0]
+    ?.needsFfmpeg === true
+)
+ok(
+  'a real formats list still wins over the top-level url',
+  rawFormatsOf({
+    url: 'https://cdn.example/v.mp4',
+    formats: [{ format_id: 'a' }, { format_id: 'b' }]
+  }).length === 2
+)
+ok('nothing at all yields nothing', rawFormatsOf({}).length === 0)
 
 console.log(failures === 0 ? '\nAll checks passed.' : `\n${failures} check(s) failed.`)
 // Set the code rather than calling process.exit(): forcing an exit while the

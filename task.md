@@ -190,6 +190,11 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
       extractor, so a plugin behind a wall could not have worked without it
 - [x] No host names added to the registry: the impersonation target is discovered
       generically, so nothing publishes which sites were reported
+- [x] Fixed the gap that would have made all of it look broken: an extractor
+      returning a single top-level `url` has no `formats` array, so shaping
+      produced zero rows and the queue showed nothing to download even though
+      extraction had succeeded. Verified against the real payload — one
+      "Original quality" row
 - [ ] Registry carries plugins too; component pipeline fetches and
       **sha256-verifies** them exactly like ffmpeg — a plugin is executable code,
       not config. Until then plugins only arrive with an app release

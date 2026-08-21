@@ -7,6 +7,7 @@ import type { MediaInfo, PlaylistInfo, Result, SubtitleTrack } from '../../share
 import {
   IMPERSONATE_ARGS,
   IMPERSONATE_TARGETS,
+  rawFormatsOf,
   listAllFormats,
   looksBotBlocked,
   shapeFormats,
@@ -88,6 +89,18 @@ interface RawInfo {
   extractor_key?: string
   extractor?: string
   formats?: RawFormat[]
+  /* Present instead of `formats` when an extractor returns a single URL. */
+  url?: string
+  format_id?: string
+  ext?: string
+  height?: number | null
+  fps?: number | null
+  vcodec?: string
+  acodec?: string
+  filesize?: number | null
+  filesize_approx?: number | null
+  tbr?: number | null
+  protocol?: string
   /** lang -> tracks. yt-dlp keeps authored and machine captions in two maps. */
   subtitles?: Record<string, Array<{ name?: string; ext?: string }>>
   automatic_captions?: Record<string, Array<{ name?: string; ext?: string }>>
@@ -242,8 +255,8 @@ export async function probe(url: string): Promise<Result<MediaInfo>> {
         thumbnail: info.thumbnail ?? null,
         webpageUrl: info.webpage_url ?? url,
         extractor: info.extractor_key ?? info.extractor ?? 'unknown',
-        formats: shapeFormats(info.formats ?? []),
-        allFormats: listAllFormats(info.formats ?? []),
+        formats: shapeFormats(rawFormatsOf(info)),
+        allFormats: listAllFormats(rawFormatsOf(info)),
         subtitles: shapeSubtitles(info),
         // Carried through so the download uses the same route that made the
         // probe work — otherwise a site we just got past would refuse us again.
