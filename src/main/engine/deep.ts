@@ -57,7 +57,20 @@ export async function listPlayers(pageUrl: string): Promise<FoundEmbed[]> {
  * later ones are mirrors that are more often dead. The first that probes
  * successfully wins; the rest are not tried.
  */
-export async function deepProbe(pageUrl: string): Promise<Result<DeepResult> | null> {
+export interface DeepOptions {
+  /**
+   * Allow the last rung — loading a player in a browser to watch what it
+   * fetches. Following an embed is a fetch and a probe and cannot crash
+   * anything; running a hostile page is a different proposition, so only that
+   * half is behind the experimental switch.
+   */
+  allowBrowser: boolean
+}
+
+export async function deepProbe(
+  pageUrl: string,
+  options: DeepOptions
+): Promise<Result<DeepResult> | null> {
   const players = (await listPlayers(pageUrl)).slice(0, MAX_PLAYERS)
   if (players.length === 0) return null
 
@@ -86,6 +99,8 @@ export async function deepProbe(pageUrl: string): Promise<Result<DeepResult> | n
      * video.js instance with `preload: "none"` whose source is injected by a
      * script from another origin, where there is nothing in the HTML to find.
      */
+    if (!options.allowBrowser) continue
+
     const sniffed = await sniffMedia(player.url, { referer: pageUrl })
     const best = sniffed[0]
     if (best) {

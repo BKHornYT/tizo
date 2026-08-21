@@ -11,6 +11,27 @@ Newest first. One entry per change, using this format:
 
 ---
 
+## 2026-08-21 - v0.0.9: pasting the page URL is enough
+
+**What:** Embed-following now runs as part of the normal chain instead of being
+gated behind Settings > Experimental. Only the browser rung - loading a player to
+watch what it fetches - stays behind that switch.
+
+**Why:** Reported directly: pasting the page did nothing. Both halves had been put
+behind one toggle, so a site that shows "Player 1 / Player 2" instead of a video
+stayed broken unless someone found the setting. Following an embed is a fetch and
+a probe; it cannot crash anything, and gating it bought nothing.
+
+**Files:** src/main/engine/deep.ts, src/main/queue/index.ts, CLAUDE.md, task.md
+
+**Verified end to end from the page URL, toggle off:** probe fails with
+UNSUPPORTED_SITE, the page scan correctly finds nothing, the embed is followed,
+the plugin extracts, and one row is offered. 8.5 seconds start to finish.
+
+**The general lesson:** an opt-in switch is right for something that can misbehave,
+and wrong for something that is simply the next step. Splitting them by risk rather
+than by feature is what made the difference.
+
 ## 2026-08-21 — v0.0.8: a single-URL extractor produced no downloadable row
 **What:** An extractor that returns one top-level `url` has no `formats` array at
 all, and the probe read `info.formats ?? []` — so shaping produced zero rows and
@@ -45,7 +66,7 @@ was broken.
 and to retry a detected bot wall with a real `--impersonate` target.
 **Why:** The goal is that a reported site can be supported without an app rewrite.
 This is the rung that makes that true.
-**Files:** resources/plugins/…/doodfamily.py, src/main/engine/plugins.ts,
+**Files:** resources/plugins/…/embedhost.py, src/main/engine/plugins.ts,
 src/main/engine/{probe,args,formats,download,scrape,deep}.ts,
 src/main/queue/index.ts, src/main/index.ts, src/shared/types.ts,
 electron-builder.yml, components.json, docs/site-support.md, CLAUDE.md, task.md

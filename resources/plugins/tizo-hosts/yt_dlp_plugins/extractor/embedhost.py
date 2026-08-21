@@ -1,4 +1,4 @@
-"""Extractor for the DoodStream-family embed hosts.
+"""Extractor for a family of embed hosts.
 
 These hosts share one flow, and the app cannot read them without it: the embed
 page contains no source at all. Its player fetches a short-lived path from a
@@ -23,8 +23,8 @@ from yt_dlp.extractor.common import InfoExtractor
 from yt_dlp.utils import ExtractorError
 
 
-class DoodFamilyIE(InfoExtractor):
-    IE_NAME = 'doodfamily'
+class EmbedHostIE(InfoExtractor):
+    IE_NAME = 'embedhost'
     _VALID_URL = r'https?://(?P<host>[^/]+)/(?:e|d)/(?P<id>[a-z0-9]{8,})'
     # Only claim a URL once the page proves it is this software; a bare
     # `/e/<id>` shape is far too common to take on sight.
@@ -43,7 +43,7 @@ class DoodFamilyIE(InfoExtractor):
             r'''\$\.get\(\s*['"](/pass_md5/[^'"]+)['"]''', webpage, 'pass_md5 path',
             default=None)
         if not pass_path:
-            raise ExtractorError('Not a DoodStream-family page', expected=True)
+            raise ExtractorError('Not a page this extractor handles', expected=True)
 
         token = self._search_regex(
             r'''cookieIndex\s*=\s*['"]([^'"]+)['"]''', webpage, 'token', default=None)

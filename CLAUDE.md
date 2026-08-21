@@ -49,6 +49,10 @@ file — and a week later gets a bugfix without doing anything.
 - **Known broken / not started:** no clipboard *watcher* or history or tray
   (Phase 6), no playlist monitoring (6.5), no optional addon gates or sign-in
   window (7 — reshaped by [docs/browser-engine.md](docs/browser-engine.md)).
+- **Site chain:** pasting a page URL runs probe, then page scan, then the
+  page's own embedded player. Only the browser rung is behind Settings >
+  Experimental. Verified end to end on a site that shows Player 1 / Player 2
+  instead of a video: page -> player -> plugin -> one downloadable row.
 - **Deployed:** the usage endpoint in `server/`, live at
   `https://tizo-stats.itemhunt-analytics.workers.dev` with `TIZO_STATS_ENDPOINT`
   set as a repo variable. Both upload routes verified against the real Worker.

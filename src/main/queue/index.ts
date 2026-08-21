@@ -169,9 +169,19 @@ async function runProbe(id: string, hasFfmpeg: boolean): Promise<void> {
        * while the URL is sitting right there. Following it costs extra requests
        * and can pick the wrong mirror, which is why it is opt-in.
        */
+      /*
+       * Following the page's own embed always runs. It is one fetch and one
+       * probe, it cannot crash anything, and a site that shows "Player 1 /
+       * Player 2" instead of a video is simply broken without it — gating that
+       * behind a switch meant pasting the page did nothing at all.
+       *
+       * Only the browser rung stays experimental.
+       */
       const settings = await loadSettings()
-      if (settings.experimentalDiscovery) {
-        const deep = await deepProbe(item.url)
+      {
+        const deep = await deepProbe(item.url, {
+          allowBrowser: settings.experimentalDiscovery
+        })
         if (!items.has(id)) return
         if (deep?.ok) {
           patch(id, {

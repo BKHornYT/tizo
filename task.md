@@ -163,7 +163,7 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
       a real `sendInputEvent` click is sent as well as the scripted one, because
       Chromium treats a trusted gesture differently from `element.click()`
 - [x] **Diagnosed the guarded host properly.** With request logging: 37 requests,
-      the player script loads (`doodcdn` assets, the embed script), Turnstile
+      the player script and its CDN assets load, Turnstile
       loads — and *zero* media content-types. The player is waiting on the bot
       challenge before it requests anything. Not the window, not the click, not
       the matcher.
@@ -172,6 +172,15 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
       a site serves. Hosts behind an interactive challenge are handled by the
       plugin route instead, where an extractor talks to the host's own API rather
       than pretending to be a browser.
+
+- [x] **Pasting the page URL is enough.** Embed-following was gated behind the
+      experimental switch along with the browser, so a site that shows
+      Player 1 / Player 2 did nothing unless the user found the toggle. It is
+      one fetch and one probe and cannot crash anything, so it now always
+      runs; only the browser rung stays experimental
+- [x] Verified end to end from the page URL with the toggle off: probe fails,
+      scan finds nothing, the embed is followed, the plugin extracts, one row
+      is offered. 8.5s
 
 ### Site support at scale — the plugin route
 > Full write-up in [docs/site-support.md](docs/site-support.md).
