@@ -228,6 +228,15 @@ export interface Settings {
   /** Include machine-generated captions when a real track is unavailable. */
   subtitleAuto: boolean
   subtitleMode: SubtitleMode
+
+  // --- Experimental ---
+  /**
+   * Follow a page's embedded player when the extractor and the page scan have
+   * both failed. Off by default: it costs extra requests, can pick the wrong
+   * player, and is the kind of behaviour that should be asked for rather than
+   * happen quietly.
+   */
+  experimentalDiscovery: boolean
 }
 
 // --- Download queue --------------------------------------------------------
@@ -302,6 +311,13 @@ export interface QueueItem {
    * referer — many CDNs refuse a request that arrives without one.
    */
   directUrl: string | null
+
+  /**
+   * Set when experimental discovery redirected this item to an embedded player.
+   * `url` then points at the player and this holds the page it was found on —
+   * many embed hosts refuse a request that arrives without it as the referer.
+   */
+  sourcePage: string | null
 
   /** Carried from the probe: this site needs browser impersonation. */
   impersonate: boolean

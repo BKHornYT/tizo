@@ -258,6 +258,13 @@ export const strings = {
     viewTerms: 'View terms',
     nextUpload: 'What would be sent next',
 
+    experimental: 'Experimental',
+    experimentalHint:
+      'Unfinished features. They can be slow, pick the wrong thing, or stop working when a site changes. Off unless you turn them on.',
+    experimentalDiscovery: 'Follow embedded players',
+    experimentalDiscoveryHint:
+      'Some sites show "Player 1 / Player 2" instead of a video, and load it only when clicked. This finds those players and follows them. It runs only after the normal attempt and the page scan have both failed, so it never slows a download that already works.',
+
     components: 'Components',
     installed: 'installed',
     notInstalled: 'not installed',

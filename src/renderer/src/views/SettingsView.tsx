@@ -207,6 +207,16 @@ export default function SettingsView({
         />
       </Group>
 
+      <Group title={strings.settings.experimental}>
+        <p className="-mt-1 text-xs text-ink-500">{strings.settings.experimentalHint}</p>
+        <Toggle
+          label={strings.settings.experimentalDiscovery}
+          hint={strings.settings.experimentalDiscoveryHint}
+          checked={settings.experimentalDiscovery}
+          onChange={(v) => void patch({ experimentalDiscovery: v })}
+        />
+      </Group>
+
       <Group title={strings.settings.updates}>
         <div className="flex items-center justify-between">
           <span className="text-sm text-ink-700">{strings.settings.appVersion}</span>

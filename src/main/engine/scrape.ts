@@ -152,8 +152,14 @@ function titleOf(html: string, url: string): string {
   }
 }
 
-export async function scrapePage(pageUrl: string): Promise<ScrapeResult | null> {
-  let html: string
+/**
+ * Fetches a page as HTML, or null.
+ *
+ * Shared with the experimental embed finder so both routes send the same
+ * browser-ish headers — a site that serves one of them different markup would
+ * make the two disagree for reasons nobody could reproduce.
+ */
+export async function fetchHtml(pageUrl: string): Promise<string | null> {
   try {
     const response = await fetch(pageUrl, {
       headers: { 'user-agent': UA, accept: 'text/html,*/*' },
@@ -164,10 +170,15 @@ export async function scrapePage(pageUrl: string): Promise<ScrapeResult | null> 
     const type = response.headers.get('content-type') ?? ''
     if (!/text\/html|application\/xhtml/i.test(type)) return null
     // Enough to reach inline players without holding a huge page in memory.
-    html = (await response.text()).slice(0, 4_000_000)
+    return (await response.text()).slice(0, 4_000_000)
   } catch {
     return null
   }
+}
+
+export async function scrapePage(pageUrl: string): Promise<ScrapeResult | null> {
+  const html = await fetchHtml(pageUrl)
+  if (html === null) return null
 
   const candidates = findCandidates(html, pageUrl).slice(0, 8)
   if (candidates.length === 0) return null

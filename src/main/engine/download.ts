@@ -37,6 +37,13 @@ export interface DownloadRequest {
   extractAudio?: AudioFormat
   /** Subtitle languages chosen for this item. */
   subLangs?: string[]
+  /**
+   * Page to send as the referer. Set when the target is an embedded player
+   * found on another page — those hosts routinely 403 without it.
+   */
+  referer?: string
+  /** Headers captured from a watched player, replayed on the download. */
+  headers?: Record<string, string>
 }
 
 export type StartResult =
@@ -161,7 +168,9 @@ export async function startDownload(
   // A scraped media URL is fetched directly, with the page it came from sent as
   // the referer. Site tuning still keys off the page, not the CDN host.
   const target = req.directUrl ?? req.url
-  const referer = req.directUrl ? req.url : undefined
+  // An explicit referer wins: with an embedded player the page to cite is the
+  // one the player was found on, which is no longer `req.url`.
+  const referer = req.referer ?? (req.directUrl ? req.url : undefined)
 
   const profile = await siteProfile(req.url)
   const ffmpegDir = ffmpeg.path && ffmpeg.source === 'managed' ? dirname(ffmpeg.path) : null
@@ -177,7 +186,8 @@ export async function startDownload(
     referer,
     impersonate: req.impersonate ?? false,
     extractAudio: req.extractAudio,
-    subLangs: req.subLangs ?? []
+    subLangs: req.subLangs ?? [],
+    headers: req.headers
   }
 
   let collisionSuffix: string | undefined

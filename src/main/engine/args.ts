@@ -27,6 +27,11 @@ export interface ArgContext {
   extractAudio?: AudioFormat | undefined
   /** Subtitle languages for this job. Empty or absent means none. */
   subLangs?: string[] | undefined
+  /**
+   * Extra request headers, captured from a player that was watched rather than
+   * parsed. Replayed verbatim because these CDNs check them.
+   */
+  headers?: Record<string, string> | undefined
 }
 
 /** Lossless targets, where a bitrate setting is meaningless and must be omitted. */
@@ -111,6 +116,18 @@ export function buildDownloadArgs(ctx: ArgContext): string[] {
   // A direct CDN link scraped from a page is routinely 403'd without the page
   // it was embedded on.
   if (ctx.referer) args.push('--referer', ctx.referer)
+
+  /*
+   * Headers observed on the real request. `--referer` already covers Referer, so
+   * it is skipped here rather than sent twice with possibly different values.
+   * Newlines are stripped: a header value is a single line, and anything else is
+   * either broken or an attempt to inject a second header.
+   */
+  for (const [name, value] of Object.entries(ctx.headers ?? {})) {
+    if (name.toLowerCase() === 'referer') continue
+    const clean = value.replace(/[\r\n]/g, '').trim()
+    if (clean) args.push('--add-header', `${name}:${clean}`)
+  }
 
   // A registry profile names a specific target; the probe's own finding is a
   // generic "this site needs it" and uses the generic extractor arg.

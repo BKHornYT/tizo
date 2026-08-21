@@ -25,7 +25,8 @@ const BASE: Settings = {
   embedMetadata: true,
   subtitleLangs: [],
   subtitleAuto: false,
-  subtitleMode: 'embed'
+  subtitleMode: 'embed',
+  experimentalDiscovery: false
 }
 
 const ctx = (settings: Partial<Settings>, extra: Record<string, unknown> = {}): string[] =>

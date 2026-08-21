@@ -44,7 +44,9 @@ function defaults(): Settings {
     // everyone would add files most people did not ask for.
     subtitleLangs: [],
     subtitleAuto: false,
-    subtitleMode: 'embed'
+    subtitleMode: 'embed',
+
+    experimentalDiscovery: false
   }
 }
 
@@ -96,7 +98,11 @@ function coerce(raw: unknown): Settings {
     subtitleAuto: typeof r['subtitleAuto'] === 'boolean' ? r['subtitleAuto'] : base.subtitleAuto,
     subtitleMode: SUB_MODES.includes(r['subtitleMode'] as SubtitleMode)
       ? (r['subtitleMode'] as SubtitleMode)
-      : base.subtitleMode
+      : base.subtitleMode,
+    experimentalDiscovery:
+      typeof r['experimentalDiscovery'] === 'boolean'
+        ? r['experimentalDiscovery']
+        : base.experimentalDiscovery
   }
 }
 

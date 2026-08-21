@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { registerIpc } from './ipc'
 import { cancelAll } from './engine/download'
+import { runSniffChild, sniffChildTarget } from './engine/browser'
 
 const isDev = !app.isPackaged
 
@@ -49,9 +50,49 @@ function createWindow(): BrowserWindow {
   return win
 }
 
-// Single instance: a second launch focuses the existing window instead of
-// starting a rival copy that would fight over the download queue and settings.
-if (!app.requestSingleInstanceLock()) {
+/*
+ * Experimental discovery runs its browser in a child copy of this executable,
+ * because rendering a hostile page can abort the process outright — a Chromium
+ * CHECK failure is not catchable, so the only containment is a separate process.
+ *
+ * This branch has to come first: a sniff child must never take the single
+ * instance lock (it would be told to quit), open the real window, or register
+ * IPC. It loads a page, prints one line, and exits.
+ */
+const sniffTarget = sniffChildTarget(process.argv)
+if (sniffTarget) {
+  app.disableHardwareAcceleration()
+  /*
+   * Site isolation off, in this child only.
+   *
+   * The abort that made this child necessary comes from site_info.cc itself:
+   * these pages spawn ad and popunder frames with opaque origins that trip
+   * `origin.GetTupleOrPrecursorTupleIfOpaque().IsValid()`. Blocking third-party
+   * frames cut the failures but did not remove them.
+   *
+   * The usual objection to this switch does not apply here: the child renders
+   * untrusted pages with no preload, no node integration, a sandboxed renderer
+   * and a throwaway in-memory session. Site isolation protects cross-site data
+   * sharing a process, and this process has no data worth reaching. It exits
+   * seconds later having printed one line.
+   */
+  app.commandLine.appendSwitch('disable-site-isolation-trials')
+  app.commandLine.appendSwitch('disable-features', 'IsolateOrigins,site-per-process')
+  /*
+   * Electron quits by default once every window closes. A hostile page can
+   * close or crash its own renderer, and the child would then exit before
+   * printing its result — which the parent reads as "found nothing" for a page
+   * that may have been fine. The child decides when it is done, not the page.
+   */
+  app.on('window-all-closed', () => undefined)
+
+  void app.whenReady().then(async () => {
+    await runSniffChild(sniffTarget)
+    app.exit(0)
+  })
+} else if (!app.requestSingleInstanceLock()) {
+  // Single instance: a second launch focuses the existing window instead of
+  // starting a rival copy that would fight over the download queue and settings.
   app.quit()
 } else {
   let mainWindow: BrowserWindow | null = null

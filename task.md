@@ -116,6 +116,46 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
       with cover art and tags confirmed by ffprobe, and a video came out with an
       `.en.srt` beside it and a `mov_text` track embedded and tagged `eng`
 
+### Experimental discovery (opt-in) — in progress
+> Settings → Experimental → "Follow embedded players". Off by default; runs only
+> after the extractor and the page scan have both failed.
+
+- [x] `embeds.ts` — finds players escaped inside `data-*` attributes, filters out
+      consent frames and share widgets, keeps document order and reads the label
+- [x] `deep.ts` — tries each player in the site's own order
+- [x] `browser.ts` — hidden sandboxed window on a throwaway in-memory partition,
+      watches `webRequest`, nudges `preload:"none"` players into starting
+- [x] `media.ts` — pure classifier, split out so it is testable without Electron
+- [x] Captured headers replayed via `--add-header`, kept out of `QueueItem`
+- [x] 28 offline assertions (`npm run test:embeds`)
+- [x] **Sniffer proven live**: on a YouTube page it captured 5 media URLs with
+      the `Referer`/`Origin`/`User-Agent` the player actually sent
+- [x] Run end to end against a real reported page — **it crashed.**
+- [x] **FIXED — the crash no longer reaches the app.** `sniffMedia` now spawns a
+      child copy of the app (`--tizo-sniff-url=`); the window lives there and a
+      child that dies for any reason is read as "found nothing". Verified: the
+      child takes 14 CHECK aborts on the reported page while the parent returns
+      cleanly and keeps running. `utilityProcess` was not an option — it is
+      Node-only and cannot create a window.
+- [x] Crash cause removed too: blocking third-party sub-frames cut the aborts
+      from 14 to 6, and disabling site isolation *in that child only* took it to 0
+- [x] Child lifecycle fixed: an empty `window-all-closed` handler stops a page
+      closing its own renderer from ending the child early, and
+      `render-process-gone` reports what was seen instead of waiting out the clock
+- [x] Output fixed: `app.exit()` after `process.stdout.write` truncated the
+      result, so the exit now waits for the flush callback
+- [x] No regression — a YouTube page through the child still returns a media URL
+      with `Referer`/`Origin`/`User-Agent`, zero aborts
+- [ ] **The reported host still yields nothing.** No crash, clean `[]`: that
+      player sits behind a Cloudflare Turnstile widget and never requests media
+      inside the budget. That is a per-host anti-bot problem, not a mechanism
+      problem — decide separately whether it is worth solving
+- [ ] Still unproven: the full queue path (probe → scan → embed → sniff →
+      download) as one run inside the running app
+- [ ] Ranking is crude: manifest over file, then first seen. No bitrate/duration
+      signal, so a preroll ad could outrank the feature on some sites
+- [ ] No UI for choosing between Player 1 and Player 2 — the first that works wins
+
 ### Phase 6 — Clipboard + history  ← NEXT
 
 - [ ] Clipboard watcher with toast prompt (opt-out in settings)

@@ -110,6 +110,10 @@ src/main/paths.ts          portable-aware data directory resolution
 src/main/engine/args.ts    pure yt-dlp argument builder — no electron, so it is testable
 src/main/engine/formats.ts pure format shaping — no electron, so it is testable
 src/main/engine/scrape.ts  page scanner: last-resort media finder when no extractor matches
+src/main/engine/embeds.ts  finds players stashed escaped in data-* attributes
+src/main/engine/browser.ts EXPERIMENTAL: spawns a child that watches what a player fetches
+src/main/engine/media.ts   pure: is an observed request downloadable media?
+src/main/engine/deep.ts    EXPERIMENTAL: follow a page's embedded player
 src/main/engine/           binaries, probe (incl. playlists), download, error classes
 src/main/queue/            item state, probing, concurrency pump, playlist expansion
 src/main/components/       fetch (resumable) + verify + unzip — powers setup AND addons
@@ -134,6 +138,7 @@ src/renderer/src/format.ts    byte, speed and duration formatting
 
 scripts/test-args.ts       offline assertions that settings reach the command line
 scripts/test-formats.ts    offline assertions on format shaping (generic/YouTube/HLS)
+scripts/test-embeds.ts     offline assertions on embed finding and media classifying
 scripts/test-stats.ts      runs the REAL stats module against a stub server
 scripts/electron-stub*.mjs loader hooks that let src/main run under plain Node
 scripts/test-fetcher.ts    network test for resume and integrity
@@ -163,6 +168,29 @@ proposal that reshapes Phase 7.
 ## Key Decisions
 
 Newest first.
+
+- **2026-08-21 — The experimental browser runs in a child process, not in main.**
+  Rendering a real aggregator page aborted the process with repeated
+  `site_info.cc … origin.GetTupleOrPrecursorTupleIfOpaque().IsValid()` CHECK
+  failures. A Chromium CHECK is an abort, not an exception — `try/catch` and
+  `unhandledRejection` never see it — so the only containment is process
+  boundary. `sniffMedia` spawns a child copy of the app; a child that dies for any
+  reason is simply "found nothing", which the caller already handles. Without this
+  one hostile page would take down the app and every queued download with it.
+
+- **2026-08-21 — Experimental discovery is opt-in and last.** Following a page's
+  embedded player, and running that player in a hidden window, sit behind
+  Settings → Experimental and execute only after the extractor *and* the page scan
+  have both failed. *Why:* they cost extra page loads, can pick the wrong mirror,
+  and depend on how a site happens to be built — acceptable for something a person
+  switched on, wrong as silent default behaviour, and it keeps working downloads
+  exactly as fast as before.
+- **2026-08-21 — Captured request headers never touch `QueueItem`.** They can
+  include a session cookie, and `QueueItem` is serialised to the renderer and is
+  what feedback payloads are built from. They live in a main-process-only map
+  keyed by item id. Putting them on the item would leave credentials one careless
+  line away from a public issue tracker — the same class of mistake as joining the
+  install id to a site count.
 
 - **2026-08-21 — A format row's identity is not always its selector.** `id` was
   doubling as the yt-dlp expression, which broke the moment two rows selected the
@@ -282,6 +310,39 @@ Newest first.
   stack blocks adding macOS/Linux later.
 
 ## Gotchas
+
+- **A Chromium CHECK failure cannot be caught.** It aborts the process, so no
+  stack, no rejection, no `catch`. A silent exit with `Check failed:` lines in the
+  output is this, not a bug in your JavaScript. The fix is always isolation, never
+  error handling.
+- **Electron quits when the last window closes — including a hidden one.** A
+  hostile page that closes or crashes its own renderer made the sniff child exit
+  before printing, which the parent read as "found nothing" on pages that were
+  fine. The child registers an empty `window-all-closed` handler so it decides
+  when it is done.
+- **`process.stdout.write` then `app.exit()` truncates the write.** The child
+  handed back nothing every time until the exit was moved into the write's flush
+  callback. The same thing makes piped Electron output vanish — redirect to a file
+  when debugging, or you will chase output that was produced correctly.
+- **Site isolation is off in the sniff child, deliberately.** The abort came from
+  site_info.cc itself, over ad frames with opaque origins. Blocking third-party
+  sub-frames cut the failures from 14 to 6; disabling site isolation removed them.
+  Safe *here* only because that child has no preload, no node integration, a
+  sandboxed renderer, a throwaway in-memory session and nothing worth reaching —
+  never copy the switch into the main app.
+
+- **A media matcher built from a list of content types will be too narrow.** The
+  first sniffer enumerated `video/mp4`, `video/webm` and friends and found nothing
+  on a page that was visibly playing video: YouTube serves media as
+  `application/vnd.yt-ump` from a URL with no extension. Match `^(video|audio)/`
+  as a prefix, and exclude segments (`.ts`, `.m4s`, `video/mp2t`) explicitly — a
+  player fetches hundreds of those and none of them is the video. Guarded by
+  `npm run test:embeds`.
+- **Some sites never render an `<iframe>`.** The player markup sits
+  HTML-entity-encoded inside a `data-*` attribute and is injected on click, so the
+  page shows "Player 1 / Player 2" and a poster. Scanning raw HTML for elements
+  correctly finds nothing while the URL is sitting right there — `embeds.ts`
+  decodes the attributes instead.
 
 - **Any flag that runs a postprocessor breaks a no-ffmpeg row.** `--embed-metadata`,
   `--embed-subs`, `-x` and `--merge-output-format` all require ffmpeg, so emitting

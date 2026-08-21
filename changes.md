@@ -11,6 +11,98 @@ Newest first. One entry per change, using this format:
 
 ---
 
+## 2026-08-21 — Contain the experimental browser in a child process
+**What:** The hidden window moved out of the main process. `sniffMedia` now
+spawns a child copy of the app with `--tizo-sniff-url=`, which loads the page,
+prints one marked line of JSON and exits; the parent treats a child that dies for
+any reason as "found nothing". Also removed the crash itself: third-party
+sub-frames are blocked, and site isolation is disabled in that child only.
+**Why:** Running the chain against a real aggregator aborted the process with
+repeated `site_info.cc … origin.GetTupleOrPrecursorTupleIfOpaque().IsValid()`
+CHECK failures. A crash there takes the app down with every queued download.
+**Files:** src/main/engine/browser.ts, src/main/index.ts, CLAUDE.md, task.md
+
+**A Chromium CHECK cannot be caught** — it aborts, so there is no stack, no
+rejection and nothing for `try/catch` to see. That is why the first run looked
+like a silent success with a clean exit code. Isolation was the only fix
+available; `utilityProcess` could not be used because it is Node-only and cannot
+create a window.
+
+**Measured, not assumed:** 14 aborts on the reported page → 6 after blocking
+third-party sub-frames → 0 after disabling site isolation in the child. Blocking
+those frames also stops ad video from ranking as a candidate, which would have
+handed back a preroll instead of the feature.
+
+**Two lifecycle bugs surfaced behind the crash.** Electron quits when the last
+window closes, including a hidden one, so a page that closed its own renderer
+ended the child before it printed — the parent then read a perfectly good page as
+empty. And `app.exit()` immediately after `process.stdout.write` truncated the
+result, so the child reported nothing every time.
+
+**Verified:** the parent survives the page that used to kill it, and a YouTube
+page through the child still returns a media URL with the `Referer`, `Origin` and
+`User-Agent` the player sent, with zero aborts.
+
+**Honest limit:** the reported host now fails cleanly rather than crashing, but
+still returns nothing — its player sits behind a Cloudflare Turnstile widget and
+never requests media within the budget. That is a per-host anti-bot problem
+rather than a fault in the mechanism.
+
+## 2026-08-21 — Experimental discovery: follow the player, then watch it run
+**What:** An opt-in route for sites the normal chain cannot read, in three new
+modules. `embeds.ts` finds players that are never rendered as elements — the
+markup sits HTML-entity-encoded in a `data-*` attribute and is injected on click,
+which is why such pages show "Player 1 / Player 2" and a poster. `deep.ts` tries
+each player in the site's own order. `browser.ts` loads one in a hidden sandboxed
+window and watches `webRequest` for what its player fetches, capturing the headers
+sent with it. `media.ts` holds the pure classifier.
+**Why:** Reported directly, with a real example. A regex over HTML cannot see a
+source that JavaScript builds at runtime, and that is now most players.
+**Files:** src/main/engine/{embeds,deep,browser,media,args,download,scrape}.ts,
+src/main/queue/index.ts, src/main/store/settings.ts, src/shared/types.ts,
+src/renderer/src/{strings.ts,views/SettingsView.tsx}, scripts/test-embeds.ts,
+scripts/test-args.ts, package.json, CLAUDE.md, task.md
+
+**Opt-in and last.** Settings → Experimental, off by default, and it runs only
+after the extractor and the page scan have both failed — so nothing that already
+worked gets slower.
+
+**Verified in pieces, and the assembled run fails.** `embeds.ts` was run against
+a real reported page and returned both players with their labels. The sniffer was
+run against a YouTube page and captured 5 media URLs along with the `Referer`,
+`Origin` and `User-Agent` the player actually sent.
+
+**Then the whole chain was run against that reported page and it crashed.**
+Player discovery succeeded — "Player 1 → playmogo.com, Player 2 → bysekoze.com" —
+and the hidden window then produced repeated fatal Chromium CHECK failures
+(`site_info.cc … origin.GetTupleOrPrecursorTupleIfOpaque().IsValid()`), aborting
+the process before the probe returned. No JS exception was raised because a CHECK
+abort cannot be caught. The identical sniffer is fine on a YouTube page, so it is
+these pages specifically: dozens of cross-origin ad frames, popunder attempts and
+a Turnstile widget.
+
+**This changes the design, and the change is not optional.** A crash in the main
+process takes the entire app down — strictly worse than reporting no media found.
+Rung 3 has to run in a `utilityProcess` or a child Electron process, with a dead
+child treated as "found nothing". The experimental toggle must not ship in a
+release until that exists.
+
+**The matcher was too narrow and a test caught it.** The first version enumerated
+content types (`video/mp4`, `video/webm` …) and returned nothing on a page that
+was plainly playing video: YouTube serves media as `application/vnd.yt-ump` from a
+URL with no extension. It now matches `^(video|audio)/` as a prefix and drops
+segments explicitly, since a player fetches hundreds of those and none is the
+video.
+
+**Captured headers never touch `QueueItem`.** They can carry a session cookie, and
+`QueueItem` crosses to the renderer and is what feedback payloads are built from.
+They live in a main-process map keyed by item id instead.
+
+**Known rough edges**, recorded in task.md rather than glossed: ranking is
+manifest-over-file then first-seen, with no bitrate or duration signal, so a
+preroll ad could win on some sites; and there is no UI for picking between
+Player 1 and Player 2 — the first that works is used.
+
 ## 2026-08-21 — Phase 5: audio extraction and subtitles
 **What:** MP3 and M4A extraction rows with a bitrate setting, cover art and
 metadata embedding, and subtitles — languages read from the probe, chosen per

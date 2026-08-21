@@ -1,7 +1,7 @@
 {
   "name": "tizo",
   "productName": "Video Downloader Tizo",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Universal video downloader for Windows",
   "author": "BKHornYT",
   "license": "MIT",
@@ -16,9 +16,10 @@
     "test:fetcher": "node --experimental-strip-types scripts/test-fetcher.ts",
     "test:essentials": "node --experimental-strip-types scripts/test-essentials.ts",
     "test:args": "node --experimental-strip-types scripts/test-args.ts",
-    "test": "npm run typecheck && npm run test:args && npm run test:formats && npm run test:stats",
+    "test": "npm run typecheck && npm run test:args && npm run test:formats && npm run test:embeds && npm run test:stats",
     "icon": "node scripts/build-icon.mjs",
     "test:formats": "node --experimental-strip-types scripts/test-formats.ts",
+    "test:embeds": "node --experimental-strip-types scripts/test-embeds.ts",
     "test:stats": "node --experimental-strip-types --import ./scripts/electron-stub-register.mjs scripts/test-stats.ts"
   },
   "dependencies": {

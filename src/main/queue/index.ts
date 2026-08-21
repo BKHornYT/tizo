@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { inspectPlaylist, probe } from '../engine/probe'
 import { scrapePage } from '../engine/scrape'
+import { deepProbe } from '../engine/deep'
 import { cancelDownload, startDownload } from '../engine/download'
 import { loadSettings } from '../store/settings'
 import { maybeUpload, recordDownload } from '../stats'
@@ -11,6 +12,16 @@ type Listener = (items: QueueItem[]) => void
 const items = new Map<string, QueueItem>()
 /** Queue item id -> engine job id, for cancellation. */
 const jobs = new Map<string, string>()
+
+/**
+ * Request headers captured from a watched player, kept in the main process only.
+ *
+ * These can contain a session cookie. `QueueItem` is serialised to the renderer
+ * and is what feedback payloads are built from, so putting them there would put
+ * credentials one careless line away from a public issue tracker — the same
+ * mistake in kind as joining the install id to a site count.
+ */
+const capturedHeaders = new Map<string, Record<string, string>>()
 let listener: Listener | null = null
 
 export function onQueueChange(fn: Listener): void {
@@ -67,6 +78,7 @@ function blank(url: string): QueueItem {
     error: null,
     playlist: null,
     directUrl: null,
+    sourcePage: null,
     impersonate: false
   }
 }
@@ -147,6 +159,43 @@ async function runProbe(id: string, hasFfmpeg: boolean): Promise<void> {
           error: null
         })
         return
+      }
+
+      /*
+       * Experimental, and last. A large class of aggregator sites never render
+       * an <iframe> — the player markup sits escaped in a data-* attribute and
+       * is injected on click, so scanning the raw HTML correctly finds nothing
+       * while the URL is sitting right there. Following it costs extra requests
+       * and can pick the wrong mirror, which is why it is opt-in.
+       */
+      const settings = await loadSettings()
+      if (settings.experimentalDiscovery) {
+        const deep = await deepProbe(item.url)
+        if (!items.has(id)) return
+        if (deep?.ok) {
+          patch(id, {
+            state: 'ready',
+            title: deep.value.info.title,
+            uploader: deep.value.info.uploader,
+            duration: deep.value.info.duration,
+            thumbnail: deep.value.info.thumbnail,
+            extractor: deep.value.label
+              ? `${deep.value.info.extractor} · ${deep.value.label}`
+              : deep.value.info.extractor,
+            formats: deep.value.info.formats,
+            allFormats: deep.value.info.allFormats,
+            subtitles: deep.value.info.subtitles,
+            formatId: deep.value.info.formats[0]?.id ?? 'b',
+            // The download targets the player, citing the page it came from.
+            url: deep.value.embedUrl,
+            sourcePage: deep.value.sourcePage,
+            impersonate: deep.value.info.impersonate,
+            directUrl: deep.value.directUrl ?? null,
+            error: null
+          })
+          if (deep.value.headers) capturedHeaders.set(id, deep.value.headers)
+          return
+        }
       }
     }
 
@@ -360,6 +409,10 @@ async function pump(): Promise<void> {
         // `null` means the user never chose for this item, so the global default
         // applies; `[]` is a deliberate "none for this one" and must survive.
         subLangs: item.subLangs ?? settings.subtitleLangs,
+        ...(item.sourcePage ? { referer: item.sourcePage } : {}),
+        ...(capturedHeaders.has(item.id)
+          ? { headers: capturedHeaders.get(item.id)! }
+          : {}),
         ...(item.directUrl ? { directUrl: item.directUrl } : {})
       }
 
