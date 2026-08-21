@@ -158,9 +158,20 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
       host still returns nothing with zero aborts, so something other than the
       challenge is stopping that player. Kept anyway: it is correct in principle
       and costs nothing
-- [ ] `kick()` only calls `play()` and clicks common play-button selectors. The
-      guarded host responds to neither, so the next thing to try is a real
-      synthesized input event rather than a scripted click
+- [x] `kick()` improved anyway: the window now renders off-screen instead of
+      `show: false` (a window that never paints often never starts a player), and
+      a real `sendInputEvent` click is sent as well as the scripted one, because
+      Chromium treats a trusted gesture differently from `element.click()`
+- [x] **Diagnosed the guarded host properly.** With request logging: 37 requests,
+      the player script loads (`doodcdn` assets, the embed script), Turnstile
+      loads — and *zero* media content-types. The player is waiting on the bot
+      challenge before it requests anything. Not the window, not the click, not
+      the matcher.
+- [ ] **Not pursuing challenge-solving.** Getting past Turnstile means building
+      bot-detection evasion, which is a different activity from downloading media
+      a site serves. Hosts behind an interactive challenge are handled by the
+      plugin route instead, where an extractor talks to the host's own API rather
+      than pretending to be a browser.
 
 ### Site support at scale — the plugin route
 > Full write-up in [docs/site-support.md](docs/site-support.md).

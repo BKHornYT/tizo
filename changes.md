@@ -11,6 +11,33 @@ Newest first. One entry per change, using this format:
 
 ---
 
+## 2026-08-21 — Off-screen rendering, real clicks, and why one host still refuses
+**What:** The sniff window now renders off-screen (`x: -32000`) and is shown with
+`showInactive()` rather than being created with `show: false`, because a window
+that is never composited often never starts a player — which looks exactly like a
+site with no media. `kick()` also sends a real `sendInputEvent` click alongside
+the scripted one, since Chromium distinguishes a trusted gesture from
+`element.click()`, and re-runs after a settle delay.
+**Why:** Both were plausible reasons a player would sit idle, and both are right
+regardless of the host that prompted the investigation.
+**Files:** src/main/engine/browser.ts, task.md
+
+**Neither fixed the guarded host, and request logging showed why.** 37 requests:
+the page loads, the player script and its CDN assets load, the Cloudflare
+Turnstile widget loads — and not one media content-type is ever requested. The
+player is gated on the challenge and never gets as far as asking for video. So it
+was never the window, the click, or the matcher.
+
+**Deliberately not pursued: solving the challenge.** That means building
+bot-detection evasion, which is a different activity from downloading media a site
+serves openly. Hosts behind an interactive challenge belong on the plugin route
+instead — an extractor that talks to the host's own API, which is both more robust
+and less silly than driving a browser through a gate designed to stop exactly
+that.
+
+**Kept anyway:** off-screen rendering and the trusted click are strict
+improvements for every other site, and cost nothing.
+
 ## 2026-08-21 — Verified: the bundled yt-dlp loads extractor plugins
 **What:** Confirmed that the managed `yt-dlp.exe` picks up extractor plugins from
 `<binDir>/yt-dlp-plugins/<pkg>/yt_dlp_plugins/extractor/`, and wrote

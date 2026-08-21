@@ -139,7 +139,16 @@ export async function sniffInProcess(
   })
 
   const win = new BrowserWindow({
+    /*
+     * Positioned off-screen rather than hidden.
+     *
+     * A window with `show: false` is not composited, and a player that never
+     * paints often never starts fetching — which looks identical to "this site
+     * has no media". Off-screen it renders normally and stays invisible.
+     */
     show: false,
+    x: -32000,
+    y: -32000,
     width: 1280,
     height: 720,
     webPreferences: {
@@ -163,6 +172,8 @@ export async function sniffInProcess(
       const timer = setTimeout(done, timeoutMs)
 
       win.webContents.once('did-finish-load', () => {
+        // Off-screen, so this shows nothing to the user but makes the page live.
+        if (!win.isDestroyed()) win.showInactive()
         // A manifest is usually requested a moment after load, and often only
         // once something calls play(). Nudge it, then wait out the rest of the
         // budget rather than resolving immediately.
@@ -226,6 +237,29 @@ async function kick(win: BrowserWindow): Promise<void> {
     if (frame === win.webContents.mainFrame) continue
     await frame.executeJavaScript(script, true).catch(() => undefined)
   }
+
+  /*
+   * A synthesized click, because a scripted one is not the same thing.
+   *
+   * Chromium's autoplay policy distinguishes a trusted user gesture from
+   * `element.click()`, and players built around a poster overlay wait for the
+   * real thing. `sendInputEvent` produces an event indistinguishable from a
+   * person clicking, which is the only way past that gate short of showing the
+   * window to someone.
+   */
+  const clickAt = (x: number, y: number): void => {
+    if (win.isDestroyed()) return
+    for (const type of ['mouseDown', 'mouseUp'] as const) {
+      win.webContents.sendInputEvent({ type, x, y, button: 'left', clickCount: 1 })
+    }
+  }
+  clickAt(640, 360)
+  await new Promise((r) => setTimeout(r, 700))
+  clickAt(640, 360)
+
+  // Some players only bind their handler after their own script settles.
+  await new Promise((r) => setTimeout(r, 1500))
+  await win.webContents.executeJavaScript(script, true).catch(() => undefined)
 }
 
 
