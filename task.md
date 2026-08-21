@@ -37,8 +37,37 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
 - [x] Local per-site download tally, visible in Options
 - [x] Two keyless upload streams: `/sites` (no id) and `/install` (no site data)
 - [x] Cloudflare Worker + D1 schema + deploy docs in `server/`
-- [ ] **Not deployed.** Run the steps in `server/README.md`, then set
-      `TIZO_STATS_ENDPOINT` at build time. Until then the client sends nothing.
+- [x] **Deployed 2026-08-21** — Worker + D1 live at
+      `https://tizo-stats.itemhunt-analytics.workers.dev`, both routes and the
+      dashboard verified against the real endpoint, test rows deleted
+- [x] `TIZO_STATS_ENDPOINT` set as a repo variable on `BKHornYT/tizo`
+- [x] Fixed the wiring: the var was a runtime `process.env` lookup with no
+      `define`, so it was inlined nowhere and the shipped app always read an
+      empty endpoint. Now baked in at build time and verified in `out/`
+- [x] **v0.0.5** is the first build carrying the endpoint. Every earlier release
+      has an empty one and will never send anything
+- [x] `npm run test:stats` — 15 assertions running the real stats module against
+      a stub server; also run once against the live Worker, which accepted the
+      real payloads and stored them correctly
+
+### Dashboard sign-in (Google OAuth)
+- [x] `GET` gated behind Google sign-in with an email allow list; `POST /sites`
+      and `POST /install` deliberately left open — the app must never carry a
+      credential
+- [x] Signed-cookie session, no session table; allow list re-checked per request
+- [x] Fails closed — 503 when the secrets are missing, never the data
+- [x] `SESSION_SECRET` and `ALLOWED_EMAILS` set; deployed and verified closed
+      while both upload routes still return 200
+- [x] Google OAuth client created; all four secrets set and deployed
+- [x] Verified: `GET` 401 + sign-in page, `/auth/login` 302s to Google with the
+      right client / redirect URI / `openid email` scopes, forged `state`
+      rejected, `POST /sites` still 200
+- [ ] **Sign in once in a browser** to confirm the round trip and the allow list.
+      Add `boysgunsmoke@gmail.com` under Audience → Test users first, or Google
+      returns `access_denied` before the Worker is ever reached
+- [ ] Publish the consent screen to Production — only `openid`/`email` are
+      requested, both non-sensitive, so no Google verification is needed. Avoids
+      Testing mode's 7-day consent expiry
 
 ## Next
 
@@ -62,6 +91,12 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
 - [x] "Original quality" row when a site offers one file with no resolution
 - [x] Pure `engine/formats.ts` split out so shaping is testable
 - [x] `npm run test:formats` — 17 assertions across generic, YouTube and HLS shapes
+
+### v0.0.5 — ship the usage endpoint
+- [x] Build-time inlining fixed, verified in `out/`
+- [x] Stats upload tested end to end against the real Worker
+- [x] Version bumped, `test:stats` added to `npm test`
+- [ ] Tag `v0.0.5` and let CI publish
 
 ### Phase 5 — Audio + subtitles  ← NEXT
 - [ ] MP3/M4A extraction w/ bitrate picker, thumbnail + metadata embed
@@ -116,9 +151,10 @@ download, with auto-update proven against a real release. Not yet built: audio
 extraction, subtitles, clipboard watching, history, tray, playlist monitoring,
 and the optional addon gates.
 
-**The stats endpoint is written but not deployed.** Nothing is collected until
-`server/` is deployed and `TIZO_STATS_ENDPOINT` is set as a repo variable — see
-[server/README.md](server/README.md).
+**The stats endpoint is deployed** (2026-08-21) and the repo variable is set, so
+builds from v0.0.5 onward carry it. Nothing is collected from any existing
+install — they shipped with an empty endpoint — and nothing is collected from new
+ones until the user opts in. See [server/README.md](server/README.md).
 
 ## Open questions
 
@@ -129,8 +165,8 @@ and the optional addon gates.
   locale is a lookup swap rather than a rewrite. Whether to ship one is open.
 - **Code signing.** Unsigned means a SmartScreen warning on every install.
   Revisit once real users start hitting it.
-- **Stats endpoint.** `server/` is written but not deployed; nothing is collected
-  until it is and `TIZO_STATS_ENDPOINT` is set at build time.
+- **Stats endpoint.** Deployed and wired. The dashboard is now private (Google
+  sign-in, allow list) — resolved 2026-08-21.
 
 ## Done
 

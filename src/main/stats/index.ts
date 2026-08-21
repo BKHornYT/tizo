@@ -28,7 +28,10 @@ import type { SiteStat } from '../../shared/types'
 const FILE = 'stats.json'
 const DAY = 24 * 60 * 60 * 1000
 
-const ENDPOINT = process.env['TIZO_STATS_ENDPOINT'] ?? ''
+// Dot access on purpose: the build replaces this exact token with a literal
+// (see `define` in electron.vite.config.ts). Bracket notation is not matched
+// and would leave a runtime lookup that is always empty in a packaged app.
+const ENDPOINT = process.env.TIZO_STATS_ENDPOINT ?? ''
 
 interface StatsFile {
   lifetime: Record<string, number>

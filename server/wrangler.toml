@@ -8,4 +8,4 @@ compatibility_date = "2026-08-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "tizo-stats"
-database_id = "REPLACE_WITH_YOUR_D1_ID"
+database_id = "8d991c90-ec35-4636-a0a5-dcfec2749347"

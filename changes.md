@@ -11,6 +11,115 @@ Newest first. One entry per change, using this format:
 
 ---
 
+## 2026-08-21 — v0.0.5: the first build that can actually upload
+**What:** Bumped to 0.0.5 — the first release whose bundle carries a real
+`TIZO_STATS_ENDPOINT`. Added `npm run test:stats`, which runs the **real**
+`src/main/stats` module against a stub HTTP server and asserts what goes over the
+wire; wired it into `npm test`. `electron` is replaced by a loader hook
+(`scripts/electron-stub*.mjs`) rather than the module being copied into the test.
+**Why:** The endpoint had been wired end to end and shipped inert for four
+releases. A test that copies the module would have copied the bug and passed, so
+it had to be the shipping code that runs.
+**Files:** package.json, scripts/test-stats.ts, scripts/electron-stub.mjs,
+scripts/electron-stub-hooks.mjs, scripts/electron-stub-register.mjs, CLAUDE.md,
+task.md
+
+**15 assertions**, including the ones that are really privacy checks: the site
+batch carries no install id and no URL, path or title; the install ping carries a
+uuid and no site data; opting out uploads nothing while still counting locally;
+`pending` survives a rejected upload; a second upload the same day is throttled.
+
+**Also run against the live Worker** (`TIZO_STATS_TEST_URL=…`): it accepted the
+real payloads and D1 held `youtube.com: 1`, `vimeo.com: 1` and one install at
+`9.9.9-test`. Test rows deleted afterwards — the database is back to zeros.
+
+**Anyone updating from 0.0.4 starts uploading without a new prompt.** Accepting
+the terms sets `shareStats: true`, and those terms already describe exactly this:
+a per-site count with no identifier, plus a separate install ping. So the consent
+covers it — but it is worth knowing that the behaviour changes on update rather
+than on install, and the toggle in Options is how anyone withdraws.
+
+## 2026-08-21 — Dashboard behind Google sign-in; upload routes left open
+**What:** The usage dashboard was public by design. It is now behind Google
+OAuth implemented inside the Worker: `/auth/login` → Google (`openid email`,
+random `state` cookie), `/auth/callback` verifies `iss`/`aud`/`email_verified`
+and checks the address against an `ALLOWED_EMAILS` allow list, then sets an
+HMAC-signed session cookie. `GET` — HTML and JSON alike — requires it.
+**Why:** Asked for directly. Reverses the "public on purpose" decision, which no
+user-facing copy ever promised (checked `terms.ts` and `strings.ts` — neither
+mentions the dashboard), so nothing breaks for users.
+**Files:** server/worker.js, server/README.md, CLAUDE.md, task.md
+
+**`POST /sites` and `POST /install` are deliberately still open.** The app has no
+account and must never have one: a shipped credential would be a shared secret in
+every copy *and* would give the server a way to tell submissions apart — the same
+linkability that keeping the two streams keyless exists to prevent. Verified after
+deploy: `GET` returned 503 while both POSTs returned 200.
+
+**Fails closed.** Missing secrets mean 503 and no data, never a silent fall back
+to public. It was deployed in that state on purpose, before the Google client
+exists, so there was no window where the numbers sat public and unattended.
+
+**No session table.** The session is a signed cookie. Storing sessions would put a
+timestamped record of the operator beside tables whose whole point is holding
+nothing per-person. The allow list is re-checked per request, so revoking access
+is immediate rather than cookie-lifetime.
+
+**In-Worker OAuth rather than Cloudflare Access** because Access cannot be applied
+to a `*.workers.dev` hostname and no domain is owned. Access would also have
+needed a bypass policy to keep the POST routes reachable.
+
+**Client configured the same day.** All four secrets are set and deployed.
+Verified against the live Worker: `GET` returns 401 with the sign-in page instead
+of the data, `/auth/login` 302s to Google carrying the right client id, an exactly
+matching `redirect_uri` and `openid email`, a forged `state` is rejected with "did
+not match", and `POST /sites` still returns 200. Test rows deleted afterwards.
+
+**Two traps worth knowing, both now in Gotchas:** `wrangler secret put` reported
+success for all four secrets and the Worker kept answering 503 until an explicit
+`wrangler deploy` — the secret list looks complete while the running version has
+none of them. And secrets must be piped with `printf '%s'`, not `echo`, because a
+trailing newline in `GOOGLE_CLIENT_ID` would silently fail the `aud` check.
+
+**Left to do:** sign in once in a browser, add the address under Audience → Test
+users, and publish the consent screen so Testing mode's 7-day consent expiry stops
+applying.
+
+## 2026-08-21 — Usage endpoint deployed, and the wiring that made it inert
+**What:** Deployed the Cloudflare Worker + D1 from `server/` to
+`https://tizo-stats.itemhunt-analytics.workers.dev` and set `TIZO_STATS_ENDPOINT`
+as a repo variable on `BKHornYT/tizo`. Before that: fixed a bug that would have
+made the whole deploy do nothing. `src/main/stats/index.ts` read the endpoint as
+`process.env['TIZO_STATS_ENDPOINT']` and `electron.vite.config.ts` had no
+`define`, so nothing was inlined — the packaged app was reading an environment
+variable at runtime on a user's machine, where it cannot exist. `ENDPOINT` was
+therefore always `''` and `statsEnabled()` always false, no matter what CI was
+configured with.
+**Why:** The last unchecked item in the suggestions/usage block, and it was
+carrying a silent failure: the CI step setting the variable already existed and
+already looked correct.
+**Files:** electron.vite.config.ts, src/main/stats/index.ts,
+server/{wrangler.toml,README.md}, CLAUDE.md, task.md
+
+**Verified:** built with a dummy value and confirmed
+`const ENDPOINT = "https://example-check.invalid"` in `out/main/index.js` — a
+literal, not a lookup — then rebuilt clean back to `""`. Against the live Worker:
+`POST /sites` counted 7, `POST /install` accepted a real UUID and was idempotent
+on a second ping, the JSON view reported `{installs:1, downloads:7}`, and the
+browser view returned the HTML dashboard. Test rows then deleted, so the database
+is back to zeros.
+
+**A 400 from `/install` during testing was correct, not a bug** — the fake id was
+not hex and `UUID_RE` rejected it. Worth remembering before "fixing" that route.
+
+**Takes effect from v0.0.5.** Every release already out carries an empty endpoint
+and will never send anything, which is the right outcome: those users consented
+to a build that could not upload.
+
+**`define` matches an exact token**, so the source must use dot access. Written
+into Gotchas because bracket notation reintroduces the bug silently and the
+build still succeeds.
+
 ## 2026-08-20 — v0.0.4: get past Cloudflare bot walls
 **What:** The reported site turned out not to be a shaping problem at all. yt-dlp
 was being 403'd by a Cloudflare anti-bot challenge, and the page scan was refused

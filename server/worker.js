@@ -20,10 +20,10 @@ const CORS = {
   'access-control-allow-headers': 'content-type'
 }
 
-function json(data, status = 200) {
+function json(data, status = 200, cors = true) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { 'content-type': 'application/json', ...CORS }
+    headers: { 'content-type': 'application/json', ...(cors ? CORS : {}) }
   })
 }
 
@@ -61,7 +61,7 @@ code{background:#ffffff12;padding:.1rem .35rem;border-radius:.25rem}
 </style>
 <main>
 <h1>Tizo usage</h1>
-<p class="sub">Public on purpose — data collected about users should not be private to whoever collects it.</p>
+<p class="sub">Signed in as ${escapeHtml(data.email)} · <a href="/auth/logout">sign out</a></p>
 <div class="cards">
   <div class="card"><b>${data.installs.toLocaleString()}</b><span>installations</span></div>
   <div class="card"><b>${data.downloads.toLocaleString()}</b><span>downloads counted</span></div>
@@ -76,7 +76,7 @@ cannot show what any one machine downloaded.<br>
 Raw JSON: <code>?.json</code> or send <code>Accept: application/json</code>.
 </footer>
 </main>`,
-    { headers: { 'content-type': 'text/html; charset=utf-8', ...CORS } }
+    { headers: { 'content-type': 'text/html; charset=utf-8' } }
   )
 }
 
@@ -88,14 +88,246 @@ function escapeHtml(s) {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
+
+/* ------------------------------------------------------------------ *
+ * Google sign-in for the dashboard.
+ *
+ * Gates GET only. `POST /sites` and `POST /install` stay open and
+ * unauthenticated on purpose — they are the app talking, and the app has no
+ * account and must never have one. Putting a credential in the client would
+ * mean shipping a shared secret in every copy AND giving the server a way to
+ * tell submissions apart, which is exactly the linkability this design avoids.
+ *
+ * Sessions are a signed cookie, not a table. There is deliberately no session
+ * store: adding one would put a timestamped record of the operator beside the
+ * usage tables, and the point of this database is that it holds nothing
+ * per-person.
+ * ------------------------------------------------------------------ */
+
+const SESSION_COOKIE = 'tizo_session'
+const STATE_COOKIE = 'tizo_oauth_state'
+const SESSION_TTL = 30 * 24 * 60 * 60 * 1000
+
+const enc = new TextEncoder()
+
+function b64url(bytes) {
+  let out = ''
+  for (const b of bytes) out += String.fromCharCode(b)
+  return btoa(out).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+function b64urlDecode(str) {
+  const raw = atob(str.replace(/-/g, '+').replace(/_/g, '/'))
+  return Uint8Array.from(raw, (c) => c.charCodeAt(0))
+}
+
+async function hmac(secret, data) {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  )
+  return new Uint8Array(await crypto.subtle.sign('HMAC', key, enc.encode(data)))
+}
+
+/** Length-independent compare, so a signature cannot be guessed a byte at a time. */
+function safeEqual(a, b) {
+  if (a.length !== b.length) return false
+  let diff = 0
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  return diff === 0
+}
+
+async function signSession(secret, payload) {
+  const body = b64url(enc.encode(JSON.stringify(payload)))
+  return body + '.' + b64url(await hmac(secret, body))
+}
+
+async function readSession(secret, token) {
+  if (!token) return null
+  const dot = token.lastIndexOf('.')
+  if (dot < 1) return null
+  const body = token.slice(0, dot)
+  if (!safeEqual(token.slice(dot + 1), b64url(await hmac(secret, body)))) return null
+  try {
+    const payload = JSON.parse(new TextDecoder().decode(b64urlDecode(body)))
+    if (typeof payload.exp !== 'number' || Date.now() > payload.exp) return null
+    return payload
+  } catch {
+    return null
+  }
+}
+
+function cookie(request, name) {
+  for (const part of (request.headers.get('cookie') ?? '').split(';')) {
+    const eq = part.indexOf('=')
+    if (eq < 0) continue
+    if (part.slice(0, eq).trim() === name) return part.slice(eq + 1).trim()
+  }
+  return null
+}
+
+function setCookie(name, value, maxAge) {
+  return name + '=' + value + '; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=' + maxAge
+}
+
+/**
+ * Returns null when sign-in is not configured. Callers must then FAIL CLOSED —
+ * a missing secret has to mean "nobody sees the data", never "everybody does".
+ */
+function authConfig(env) {
+  const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SESSION_SECRET, ALLOWED_EMAILS } = env
+  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !SESSION_SECRET || !ALLOWED_EMAILS) return null
+  const allowed = ALLOWED_EMAILS.split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean)
+  if (allowed.length === 0) return null
+  return { id: GOOGLE_CLIENT_ID, secret: GOOGLE_CLIENT_SECRET, session: SESSION_SECRET, allowed }
+}
+
+function signInPage(message) {
+  return new Response(
+    `<!doctype html><meta charset="utf-8"><title>Tizo usage</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{color-scheme:dark}
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:#1e2138;
+  color:#e8e9f0;font:15px/1.5 'Segoe UI',system-ui,sans-serif}
+div{text-align:center;padding:2rem}
+h1{margin:0 0 .4rem;font-size:1.35rem}
+p{margin:0 auto 1.75rem;color:#9aa0bd;font-size:.85rem;max-width:22rem}
+a{display:inline-block;background:#b95ce4;color:#fff;text-decoration:none;
+  padding:.6rem 1.4rem;border-radius:.6rem;font-weight:600;font-size:.9rem}
+</style>
+<div>
+<h1>Tizo usage</h1>
+<p>${escapeHtml(message)}</p>
+<a href="/auth/login">Sign in with Google</a>
+</div>`,
+    { status: 401, headers: { 'content-type': 'text/html; charset=utf-8' } }
+  )
+}
+
+async function handleAuth(request, path, config) {
+  const origin = new URL(request.url).origin
+  const redirectUri = origin + '/auth/callback'
+
+  if (path.endsWith('/auth/logout')) {
+    return new Response(null, {
+      status: 302,
+      headers: { location: '/', 'set-cookie': setCookie(SESSION_COOKIE, '', 0) }
+    })
+  }
+
+  if (path.endsWith('/auth/login')) {
+    const state = b64url(crypto.getRandomValues(new Uint8Array(24)))
+    const url = new URL('https://accounts.google.com/o/oauth2/v2/auth')
+    url.searchParams.set('client_id', config.id)
+    url.searchParams.set('redirect_uri', redirectUri)
+    url.searchParams.set('response_type', 'code')
+    url.searchParams.set('scope', 'openid email')
+    url.searchParams.set('state', state)
+    // A login, not ongoing access: no offline scope, so no refresh token is issued.
+    url.searchParams.set('prompt', 'select_account')
+    return new Response(null, {
+      status: 302,
+      headers: { location: url.toString(), 'set-cookie': setCookie(STATE_COOKIE, state, 600) }
+    })
+  }
+
+  // /auth/callback
+  const params = new URL(request.url).searchParams
+  const state = params.get('state')
+  const expected = cookie(request, STATE_COOKIE)
+  // Rejecting a mismatched state is what stops a third party from walking
+  // someone into a session they did not start.
+  if (!state || !expected || !safeEqual(state, expected)) {
+    return signInPage('That sign-in link expired or did not match. Try again.')
+  }
+
+  const code = params.get('code')
+  if (!code) return signInPage('Google did not return a code. Try again.')
+
+  const token = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      code,
+      client_id: config.id,
+      client_secret: config.secret,
+      redirect_uri: redirectUri,
+      grant_type: 'authorization_code'
+    })
+  })
+  if (!token.ok) return signInPage('Google rejected the sign-in. Try again.')
+
+  const body = await token.json()
+  if (typeof body.id_token !== 'string') return signInPage('No identity returned. Try again.')
+
+  /*
+   * The id_token came straight from Google's token endpoint over TLS, in reply
+   * to a request carrying our client secret — so verifying the signature adds
+   * nothing on this path, and Google's own guidance says it can be skipped.
+   * `aud` and `iss` are still checked, because they are free.
+   */
+  let claims
+  try {
+    claims = JSON.parse(new TextDecoder().decode(b64urlDecode(body.id_token.split('.')[1])))
+  } catch {
+    return signInPage('Could not read the identity Google returned.')
+  }
+
+  const issuerOk =
+    claims.iss === 'https://accounts.google.com' || claims.iss === 'accounts.google.com'
+  if (!issuerOk || claims.aud !== config.id || claims.email_verified !== true) {
+    return signInPage('That Google account could not be verified.')
+  }
+
+  const email = String(claims.email ?? '').toLowerCase()
+  if (!config.allowed.includes(email)) {
+    // Name the rejected account: the usual cause is being signed in to the
+    // wrong Google account, and a bare "denied" sends people in circles.
+    return signInPage(email + ' is not on the allow list for this dashboard.')
+  }
+
+  const session = await signSession(config.session, { email, exp: Date.now() + SESSION_TTL })
+  const headers = new Headers({ location: '/' })
+  headers.append('set-cookie', setCookie(SESSION_COOKIE, session, SESSION_TTL / 1000))
+  headers.append('set-cookie', setCookie(STATE_COOKIE, '', 0))
+  return new Response(null, { status: 302, headers })
+}
+
 export default {
   async fetch(request, env) {
     if (request.method === 'OPTIONS') return new Response(null, { headers: CORS })
 
     const path = new URL(request.url).pathname
 
-    // Public totals, so the numbers this collects are not private to us.
+    const config = authConfig(env)
+
+    if (path.includes('/auth/')) {
+      if (!config) return json({ error: 'sign-in not configured' }, 503, false)
+      return handleAuth(request, path, config)
+    }
+
     if (request.method === 'GET') {
+      // Fail closed. A missing secret means nobody sees the numbers — the
+      // failure worth guarding against is a deploy that silently reverts to
+      // public.
+      if (!config) return json({ error: 'dashboard sign-in is not configured' }, 503, false)
+
+      const session = await readSession(config.session, cookie(request, SESSION_COOKIE))
+      // Re-checked against the allow list on every request, so removing someone
+      // takes effect immediately rather than whenever their cookie expires.
+      if (!session || !config.allowed.includes(String(session.email).toLowerCase())) {
+        if (!(request.headers.get('accept') ?? '').includes('text/html')) {
+          return json({ error: 'sign in required' }, 401, false)
+        }
+        return signInPage('These numbers are not public. Sign in to view them.')
+      }
+
       // A browser gets a readable page; anything else gets the JSON. Same data
       // either way — the dashboard is just a rendering of the same query.
       const wantsHtml =
@@ -110,9 +342,10 @@ export default {
       const data = {
         installs: installs?.n ?? 0,
         downloads: total?.n ?? 0,
-        sites: sites.results ?? []
+        sites: sites.results ?? [],
+        email: session.email
       }
-      return wantsHtml ? html(data) : json(data)
+      return wantsHtml ? html(data) : json(data, 200, false)
     }
 
     if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405)

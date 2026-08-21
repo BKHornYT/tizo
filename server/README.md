@@ -47,43 +47,107 @@ from hardware, so it cannot be regenerated or matched to a device.
 
 ## Deploy
 
+**Deployed 2026-08-21** to `https://tizo-stats.itemhunt-analytics.workers.dev`, with the D1
+id already filled into `wrangler.toml` and `TIZO_STATS_ENDPOINT` set as a repo
+variable on `BKHornYT/tizo`. Redeploy after changing `worker.js` with
+`cd server && npx wrangler deploy`.
+
+The first-time steps, for reference or for a rebuild elsewhere:
+
 ```bash
 cd server
 npx wrangler d1 create tizo-stats          # copy the id into wrangler.toml
 npx wrangler d1 execute tizo-stats --remote --file=schema.sql
 npx wrangler deploy
+gh variable set TIZO_STATS_ENDPOINT --repo BKHornYT/tizo --body <worker url>
 ```
 
-Then point the app at it by setting `TIZO_STATS_ENDPOINT` at build time:
+The app is pointed at it by `TIZO_STATS_ENDPOINT` at **build** time:
 
 ```
-TIZO_STATS_ENDPOINT=https://tizo-stats.<subdomain>.workers.dev
+TIZO_STATS_ENDPOINT=https://tizo-stats.itemhunt-analytics.workers.dev
 ```
+
+**This is inlined into the bundle by `define` in `electron.vite.config.ts`, not
+read at runtime.** A packaged app runs on a machine where the variable does not
+exist, so a live `process.env` lookup is always empty — which is exactly the bug
+that made the first wiring inert. The token in `src/main/stats/index.ts` must
+stay dot-access (`process.env.TIZO_STATS_ENDPOINT`); bracket notation is not
+matched by `define`.
 
 Without that variable the client short-circuits: `statsEnabled()` is false, the
 Settings toggle explains that nothing can be sent, and no request is ever made.
 
 ## Reading the numbers
 
-Open the Worker URL in a browser and you get a dashboard: installations, total
-downloads, and the per-site table. It is public on purpose — data collected about
-users should not be private to whoever collects it.
-
-`GET` the base URL for the totals:
-
-For the raw JSON, request it explicitly:
+Open the Worker URL in a browser, sign in with Google, and you get a dashboard:
+installations, total downloads, and the per-site table. For the raw JSON, ask for
+it explicitly — same gate, same session cookie:
 
 ```bash
-curl -H 'accept: application/json' https://tizo-stats.<subdomain>.workers.dev
-# { "installs": 412, "downloads": 9377, "sites": [ { "domain": "youtube.com", "downloads": 6120 }, … ] }
+curl -H 'accept: application/json' https://tizo-stats.itemhunt-analytics.workers.dev
+# { "installs": 412, "downloads": 9377, "sites": [ … ], "email": "you@example.com" }
 ```
 
-**Nothing is collected until this is deployed** and `TIZO_STATS_ENDPOINT` is set as
-a repository variable. Until then the client short-circuits and never makes a
-request — the Settings toggle says as much.
+### Who can see it
 
-It is public on purpose — data collected about users should not be private to
-the collector.
+**`GET` is gated. The two `POST` routes are not, and must never be.** The app has
+no account and must never have one: shipping a credential would put a shared
+secret in every copy *and* give the server a way to tell submissions apart, which
+is the exact linkability this whole design exists to avoid. So sign-in protects
+the dashboard only.
+
+Sign-in is Google OAuth implemented inside the Worker — Cloudflare Access cannot
+be applied to a `*.workers.dev` hostname, and this needs no domain.
+
+- `/auth/login` → Google, scope `openid email`, random `state` in a short-lived
+  cookie
+- `/auth/callback` → exchanges the code, checks `iss`/`aud`/`email_verified`,
+  checks the email against `ALLOWED_EMAILS`, sets a signed session cookie
+- `/auth/logout` → clears it
+
+The session is an HMAC-signed cookie, not a row. There is deliberately **no
+session table**: adding one would put a timestamped record of the operator next
+to the usage tables, and the point of this database is that it holds nothing
+per-person. The allow list is re-checked on every request, so removing an address
+takes effect immediately rather than whenever a cookie expires.
+
+**It fails closed.** If any of the four secrets is missing, `GET` returns 503 and
+shows nothing. A missing secret must never mean "everyone can see it".
+
+### Setting sign-in up
+
+Create an OAuth client in Google Cloud Console → APIs & Services → Credentials →
+*Create credentials* → *OAuth client ID* → **Web application**, with:
+
+```
+Authorised redirect URI:  https://tizo-stats.itemhunt-analytics.workers.dev/auth/callback
+```
+
+Then set the four secrets (never commit them — `wrangler secret` keeps them
+server-side):
+
+```bash
+cd server
+echo <client-id>     | npx wrangler secret put GOOGLE_CLIENT_ID
+echo <client-secret> | npx wrangler secret put GOOGLE_CLIENT_SECRET
+echo you@gmail.com   | npx wrangler secret put ALLOWED_EMAILS   # comma-separated
+node -e "process.stdout.write(require('crypto').randomBytes(32).toString('base64url'))" \
+                     | npx wrangler secret put SESSION_SECRET
+npx wrangler deploy
+```
+
+`SESSION_SECRET` and `ALLOWED_EMAILS` are already set. Rotating `SESSION_SECRET`
+signs everyone out, which is the way to revoke a session early.
+
+While the app is in *Testing* in Google's consent screen, only accounts listed as
+test users can sign in, and consent expires every 7 days. For a dashboard with
+one user that is fine; publishing the consent screen avoids the re-consent.
+
+The endpoint is live and the repo variable is set, so **builds from v0.0.5
+onward carry it**. Every release before that shipped with an empty endpoint and
+sends nothing, permanently. Even with the endpoint present nothing is collected
+until a user opts in — the client short-circuits on the setting first.
 
 ## Legal note
 

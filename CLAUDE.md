@@ -43,14 +43,20 @@ file — and a week later gets a bugfix without doing anything.
   terms gate, GitHub-backed suggestions and site reports, opt-in usage counting,
   and a custom app icon
 - **In progress:** Phase 5 — audio extraction and subtitles. Phases 0–4 and 8–9
-  are done; v0.0.4 is live and auto-update is proven working against a real
-  release
+  are done; auto-update is proven working against a real release. v0.0.5 is the
+  first build that can actually upload usage counts
 - **Known broken / not started:** no audio extraction or subtitles (Phase 5), no
   clipboard *watcher* or history or tray (Phase 6), no playlist monitoring (6.5),
   no optional addon gates or Auth Pack (7).
-- **Not deployed:** the usage endpoint in `server/`. Nothing is collected until it
-  is deployed and `TIZO_STATS_ENDPOINT` is set — the client short-circuits without
-  it. See [server/README.md](server/README.md).
+- **Deployed:** the usage endpoint in `server/`, live at
+  `https://tizo-stats.itemhunt-analytics.workers.dev` with `TIZO_STATS_ENDPOINT`
+  set as a repo variable. Both upload routes verified against the real Worker.
+  Takes effect from the next release; every shipped build so far carries an empty
+  endpoint. See [server/README.md](server/README.md).
+- **Dashboard sign-in is live:** Google OAuth gate deployed with all four
+  secrets set. `GET` returns 401 and the sign-in page; the redirect to Google
+  carries the right client, redirect URI and scopes; a forged `state` is
+  rejected. Uploads unaffected. Not yet walked through in a browser end to end.
 - **Unsigned:** every install shows a SmartScreen warning until a certificate
   exists.
 
@@ -75,9 +81,11 @@ npm run typecheck    # tsc --noEmit
 npm run build        # bundles main + preload + renderer into out/
 npm run dist         # build + electron-builder → installer, portable, zip in dist/
 npm run dist:dir     # unpacked build, no installers — much faster for smoke tests
-npm test                # offline suite: typecheck + argument and format assertions
+npm test                # offline suite: typecheck + args, formats and stats assertions
 npm run test:fetcher    # network: resume, integrity, corrupt-part discard
 npm run test:essentials # network, ~92 MB: real installer against real published assets
+npm run test:stats      # stats upload against a local stub; part of `npm test`
+TIZO_STATS_TEST_URL=<url> npm run test:stats   # same test against the real Worker
 npm run icon            # regenerate build/icon.ico from build/iconsrc/
 ```
 
@@ -125,6 +133,8 @@ src/renderer/src/format.ts    byte, speed and duration formatting
 
 scripts/test-args.ts       offline assertions that settings reach the command line
 scripts/test-formats.ts    offline assertions on format shaping (generic/YouTube/HLS)
+scripts/test-stats.ts      runs the REAL stats module against a stub server
+scripts/electron-stub*.mjs loader hooks that let src/main run under plain Node
 scripts/test-fetcher.ts    network test for resume and integrity
 scripts/test-essentials.ts real end-to-end install of the published components
 scripts/install-essentials.ts dev convenience: skip the first-run wizard
@@ -149,6 +159,16 @@ deliberately differ from the reference app.
 ## Key Decisions
 
 Newest first.
+
+- **2026-08-21 — The dashboard is private; the upload routes are not.** Reverses
+  the earlier "public on purpose". `GET` is behind Google sign-in with an email
+  allow list; `POST /sites` and `POST /install` stay open and unauthenticated.
+  *Why the split:* the app has no account and must never have one — a shipped
+  credential would be a shared secret in every copy **and** would give the server
+  a way to tell submissions apart, which is the linkability the two-stream design
+  exists to prevent. *Why in-Worker OAuth and not Cloudflare Access:* Access
+  cannot be applied to a `*.workers.dev` hostname, and no domain is owned. No
+  user-facing copy ever promised the numbers were public, so nothing breaks.
 
 - **2026-08-20 — Bot walls are handled by retry, not by default.** A Cloudflare
   403 is detected in stderr and the probe runs once more with
@@ -245,6 +265,39 @@ Newest first.
   stack blocks adding macOS/Linux later.
 
 ## Gotchas
+
+- **A wired-looking telemetry path can be inert.** Reading the call sites is not
+  proof; `npm run test:stats` runs the real `src/main/stats` module (with
+  `electron` stubbed by a loader hook, not copied) against a stub server and
+  asserts what actually goes over the wire — including that the site batch
+  carries no install id. Copying the module into a test would have reproduced the
+  bug and passed.
+
+- **`wrangler secret put` does not take effect on its own.** All four sign-in
+  secrets uploaded successfully and the Worker still answered 503 as if none
+  existed; an explicit `npx wrangler deploy` was needed before the running version
+  picked them up. Nothing warns you — the secret list looks complete and the
+  behaviour is unchanged, which reads exactly like a bug in the code.
+- **Pipe secrets with `printf '%s'`, never `echo`.** `echo` appends a newline, and
+  a trailing newline in `GOOGLE_CLIENT_ID` silently breaks the `aud` check and the
+  token exchange. Values that are compared exactly must not be trimmed by luck.
+
+- **Never gate the `POST` routes on the stats Worker.** Sign-in protects `GET`
+  only. Requiring a credential to upload would mean shipping one in every copy of
+  the app, and would hand the server a way to distinguish submitters — which
+  collapses the same guarantee as putting the install id on a site row. If a
+  change makes the app authenticate, the change is wrong.
+- **The stats dashboard must fail closed.** Missing secrets return 503, not the
+  data. The failure worth guarding against is a deploy that quietly reverts to
+  public, and that one is invisible unless the default is "show nothing".
+
+- **A build-time env var must be `define`d, or it is a runtime lookup that is
+  always empty.** `TIZO_STATS_ENDPOINT` was read as `process.env[...]` in the main
+  process with no `define` in `electron.vite.config.ts`, so the CI variable was
+  inlined nowhere and the shipped app read a variable that cannot exist on a user's
+  machine. Setting it in CI looked correct and did nothing. `define` matches the
+  exact token, so the source must use **dot** access, not brackets. Check with
+  `grep 'const ENDPOINT' out/main/index.js` — it must be a literal, not a lookup.
 
 - **yt-dlp supports ~1800 sites already.** The addon system is *not* mainly about
   unsupported sites — it's about capabilities (ffmpeg, auth/cookies). Don't design
