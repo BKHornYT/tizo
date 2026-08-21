@@ -11,6 +11,36 @@ Newest first. One entry per change, using this format:
 
 ---
 
+## 2026-08-22 - Read pages that refuse a plain request
+
+**What:** `fetchHtml` moved into `src/main/engine/page.ts` and gained a fallback:
+when a plain fetch is answered with 403, 429, 503 or a refused connection, the
+page is fetched again through yt-dlp, which impersonates a browser down to the
+TLS handshake. Shared by the page scanner and the embed finder so both see the
+same markup.
+
+**Why:** Node's `fetch` cannot fake a TLS fingerprint, so a Cloudflare-walled
+aggregator answered it with 403 - while yt-dlp walked straight through. The embed
+finder therefore never saw an iframe it would happily have followed, and the site
+looked unsupported for a reason that had nothing to do with its player.
+
+**Files:** src/main/engine/page.ts, src/main/engine/scrape.ts, CLAUDE.md, task.md
+
+**Verified on the reported site:** plain fetch 403, impersonated fetch 111 KB,
+and the embed finder returns the iframe it previously could not see.
+
+**The plain fetch stays first**, because it is far faster and is what almost every
+page needs; spawning a process per page would be a poor trade for the few that are
+walled.
+
+**yt-dlp's exit code is deliberately ignored** in the fallback. "Unsupported URL"
+is a failure for yt-dlp and a success here - the page is still written, and we
+want the HTML precisely because yt-dlp could not do anything with the URL.
+
+**This unlocks a category, not a site.** Any walled aggregator whose player is
+already supported now works. The site that prompted it still needs its own player
+solved, which is a separate problem.
+
 ## 2026-08-22 - Two more reported sites: one already covered, one blocked
 
 **What:** Diagnosed two further reported sites. One needs no work at all; the

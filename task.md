@@ -212,11 +212,13 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
       a separate player host. That host's page carries none of the usual markers
       — no kt_player, no jwplayer, no videojs, no sources — so it builds its media
       URL at runtime. That is the browser-sniffer case, i.e. rung 6
-- [ ] **BLOCKER for it: `fetchHtml` cannot read a walled page.** The embed finder
-      uses plain `fetch`, which takes the 403, while yt-dlp gets through with
-      `--impersonate`. So the app cannot even see the iframe it would need to
-      follow. Fixing this unlocks every walled aggregator, not just this one, and
-      is worth more than either site
+- [x] **FIXED: walled pages are readable now.** `page.ts` keeps the plain fetch
+      first and falls back to `yt-dlp --write-pages --impersonate` on 403/429/503
+      or a refused connection. Verified on the reported site: plain fetch 403,
+      impersonated fetch 111 KB, embed finder returns the iframe it could not see
+      before. Unlocks every walled aggregator, not one site
+- [ ] That site still needs its player solved — the embed host builds its URL at
+      runtime and matches no known family. Separate problem from the wall
 - [x] **The other site needs nothing.** First read of it was wrong: the `file:`
       and `source:` hits were CSS icon class names (`.el-icon-file`,
       `.el-icon-opensource`) and the lone `videojs` was an HTML comment naming a

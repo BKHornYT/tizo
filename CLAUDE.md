@@ -113,6 +113,7 @@ src/main/ipc.ts            every channel the renderer can reach
 src/main/paths.ts          portable-aware data directory resolution
 src/main/engine/args.ts    pure yt-dlp argument builder — no electron, so it is testable
 src/main/engine/formats.ts pure format shaping — no electron, so it is testable
+src/main/engine/page.ts    fetches a page, falling back to an impersonating client
 src/main/engine/scrape.ts  page scanner: last-resort media finder when no extractor matches
 src/main/engine/embeds.ts  finds players stashed escaped in data-* attributes
 src/main/engine/browser.ts EXPERIMENTAL: spawns a child that watches what a player fetches
@@ -346,6 +347,14 @@ Newest first.
   stack blocks adding macOS/Linux later.
 
 ## Gotchas
+
+- **Node's `fetch` cannot get past a bot wall; yt-dlp can.** A walled page
+  answers `fetch` with 403 while yt-dlp walks through, because it bundles
+  curl_cffi and fakes the TLS handshake. `page.ts` tries the plain fetch first
+  and falls back to `yt-dlp --write-pages` in a throwaway directory. Its exit code
+  is ignored on purpose: "Unsupported URL" is a failure for yt-dlp and a success
+  here, because the page still gets written — which is the whole point, since we
+  want the HTML precisely because yt-dlp could not use the URL.
 
 - **`formats` is absent whenever an extractor returns a single URL.** Most
   plugins and plenty of built-ins describe one file at the top level instead of

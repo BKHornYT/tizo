@@ -18,6 +18,11 @@ const MEDIA_EXT = /\.(mp4|webm|m4v|mov|mkv|m3u8|mpd|mp3|m4a|ogg|wav|flac)(\?[^"'
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36'
 
+import { fetchHtml } from './page'
+// Re-exported so existing importers keep their path; the impersonating
+// fallback lives in page.ts and is shared with the embed finder.
+export { fetchHtml } from './page'
+
 export interface MediaCandidate {
   url: string
   /** Where it was found — used to rank and to label. */
@@ -149,30 +154,6 @@ function titleOf(html: string, url: string): string {
     return new URL(url).hostname.replace(/^www\./, '')
   } catch {
     return 'Video'
-  }
-}
-
-/**
- * Fetches a page as HTML, or null.
- *
- * Shared with the experimental embed finder so both routes send the same
- * browser-ish headers — a site that serves one of them different markup would
- * make the two disagree for reasons nobody could reproduce.
- */
-export async function fetchHtml(pageUrl: string): Promise<string | null> {
-  try {
-    const response = await fetch(pageUrl, {
-      headers: { 'user-agent': UA, accept: 'text/html,*/*' },
-      redirect: 'follow',
-      signal: AbortSignal.timeout(25_000)
-    })
-    if (!response.ok) return null
-    const type = response.headers.get('content-type') ?? ''
-    if (!/text\/html|application\/xhtml/i.test(type)) return null
-    // Enough to reach inline players without holding a huge page in memory.
-    return (await response.text()).slice(0, 4_000_000)
-  } catch {
-    return null
   }
 }
 
