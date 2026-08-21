@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { registerIpc } from './ipc'
 import { cancelAll } from './engine/download'
 import { runSniffChild, sniffChildTarget } from './engine/browser'
-import { installBundledPlugins } from './engine/plugins'
+import { installBundledPlugins, syncRegistryPlugins } from './engine/plugins'
 
 const isDev = !app.isPackaged
 
@@ -106,8 +106,9 @@ if (sniffTarget) {
   })
 
   void app.whenReady().then(() => {
-    // Extra sites, not a startup dependency — deliberately not awaited.
-    void installBundledPlugins()
+    // Extra sites, not a startup dependency — deliberately not awaited. The
+    // registry pass runs after the bundled one so it cannot race that copy.
+    void installBundledPlugins().then(() => syncRegistryPlugins())
     registerIpc(() => mainWindow)
     mainWindow = createWindow()
 

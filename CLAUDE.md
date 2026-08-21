@@ -119,7 +119,7 @@ src/main/engine/embeds.ts  finds players stashed escaped in data-* attributes
 src/main/engine/browser.ts EXPERIMENTAL: spawns a child that watches what a player fetches
 src/main/engine/media.ts   pure: is an observed request downloadable media?
 src/main/engine/deep.ts    EXPERIMENTAL: follow a page's embedded player
-src/main/engine/plugins.ts installs the bundled yt-dlp extractor plugins
+src/main/engine/plugins.ts installs plugins: bundled, then registry-delivered
 resources/plugins/         yt-dlp extractor plugins, packed and installed on launch
 src/main/engine/           binaries, probe (incl. playlists), download, error classes
 src/main/queue/            item state, probing, concurrency pump, playlist expansion
@@ -178,6 +178,18 @@ supported, cheapest route first.
 ## Key Decisions
 
 Newest first.
+
+- **2026-08-22 — Plugins arrive from the registry, verified, and are visible in
+  Options.** Each spec carries an https url and a sha256 that `fetchFile` checks
+  before the file reaches the directory yt-dlp loads from — the same treatment
+  ffmpeg gets, because a plugin is executable code on someone's machine and not
+  configuration. A registry entry may never replace a bundled package, so a
+  compromised registry cannot swap out code we shipped. Adding a site is now a
+  verified file, not a release.
+- **2026-08-22 — Registry entries describe mechanisms, never sites.** Plugin ids
+  and site profiles both live in a public file, so a name there says which sites
+  were asked for. Ids describe what the plugin does; anything that only needs
+  impersonation gets nothing at all, because the probe discovers that at runtime.
 
 - **2026-08-21 — Extractor plugins ship with the app and install on launch.**
   `resources/plugins/` is packed by electron-builder and copied into
@@ -347,6 +359,14 @@ Newest first.
   stack blocks adding macOS/Linux later.
 
 ## Gotchas
+
+- **Never clear the whole plugin root to refresh bundled plugins.** Registry
+  plugins live in the same directory, so wiping it on launch deletes on every
+  start exactly what the registry just installed. Replace bundled packages one by
+  one instead.
+- **`TIZO_MANIFEST_URL` moves the registry off the public repo** without an app
+  change. Worth using: the default points at `raw.githubusercontent.com` in this
+  repo, so anything the manifest names is public.
 
 - **Node's `fetch` cannot get past a bot wall; yt-dlp can.** A walled page
   answers `fetch` with 403 while yt-dlp walks through, because it bundles

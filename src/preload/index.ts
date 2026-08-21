@@ -5,6 +5,7 @@ import type {
   ProgressEvent,
   FeedbackDraft,
   FeedbackKind,
+  InstalledPlugin,
   QueueItem,
   Result,
   SiteStat,
@@ -88,6 +89,11 @@ const api = {
         ipcRenderer.off('update:state', listener)
       }
     }
+  },
+
+  plugins: {
+    /** Extractor plugins on disk, bundled and registry-delivered alike. */
+    list: (): Promise<InstalledPlugin[]> => ipcRenderer.invoke('plugins:list')
   },
 
   queue: {

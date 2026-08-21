@@ -253,9 +253,23 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
       produced zero rows and the queue showed nothing to download even though
       extraction had succeeded. Verified against the real payload — one
       "Original quality" row
-- [ ] Registry carries plugins too; component pipeline fetches and
-      **sha256-verifies** them exactly like ffmpeg — a plugin is executable code,
-      not config. Until then plugins only arrive with an app release
+- [x] **Registry now carries plugins.** `components.json` gained a `plugins`
+      array; each entry is validated field by field (id shape, https url,
+      64-hex sha256) and fetched with `fetchFile`, which refuses a file whose
+      hash does not match — so nothing unverified reaches the directory yt-dlp
+      loads from
+- [x] A registry entry may not replace a bundled package, so a compromised
+      registry cannot swap out code shipped inside the app
+- [x] Installed versions tracked in `plugins.json`; a failed update leaves the
+      previous version in place rather than removing working support
+- [x] Bundled packages replaced individually, not by clearing the plugin root —
+      doing that would delete registry plugins on every launch
+- [x] Visible in Options under "Site support", each showing its version and
+      whether it shipped with the app or arrived on its own
+- [ ] Publish the first plugin through the registry end to end (upload, hash,
+      add the entry) — the pipeline is built but has never carried a real file
+- [ ] Point `TIZO_MANIFEST_URL` at the Worker so the registry stops being a
+      public file
 - [ ] Never fetch a plugin from a user-supplied URL, an issue, or a page
 - [ ] Options shows installed plugins alongside components, and can remove them
 - [ ] A route from a GitHub issue to a shipped plugin without an app release

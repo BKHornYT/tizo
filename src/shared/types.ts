@@ -366,6 +366,22 @@ export interface TermsState {
   currentVersion: number
 }
 
+/**
+ * A yt-dlp extractor plugin present on disk.
+ *
+ * Surfaced in Options because a plugin is executable code the app installed:
+ * anything running on someone's machine on our say-so should be visible to them,
+ * with its origin stated.
+ */
+export interface InstalledPlugin {
+  id: string
+  name: string
+  version: string
+  summary: string
+  /** False for anything that shipped inside the app. */
+  fromRegistry: boolean
+}
+
 export interface SiteStat {
   domain: string
   downloads: number

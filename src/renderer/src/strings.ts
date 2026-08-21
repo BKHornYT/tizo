@@ -265,6 +265,13 @@ export const strings = {
     experimentalDiscoveryHint:
       'Some sites show "Player 1 / Player 2" instead of a video, and load it only when clicked. This finds those players and follows them. It runs only after the normal attempt and the page scan have both failed, so it never slows a download that already works.',
 
+    plugins: 'Site support',
+    pluginsHint:
+      'Small add-ons that teach the download engine about extra sites. They update on their own, and each is checked against a known fingerprint before it is installed.',
+    pluginBundled: 'included',
+    pluginRegistry: 'updated',
+    noPlugins: 'None installed.',
+
     components: 'Components',
     installed: 'installed',
     notInstalled: 'not installed',

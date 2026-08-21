@@ -5,6 +5,7 @@ import type {
   EngineStatus,
   FeedbackKind,
   FileExistsRule,
+  InstalledPlugin,
   Settings,
   SiteStat,
   SubtitleMode,
@@ -52,6 +53,12 @@ export default function SettingsView({
   onChanged?: () => void
 }): React.JSX.Element {
   const [settings, setSettings] = useState<Settings | null>(null)
+
+  // Loaded once: plugins change on launch, not while Options is open.
+  const [plugins, setPlugins] = useState<InstalledPlugin[]>([])
+  useEffect(() => {
+    void window.tizo.plugins.list().then(setPlugins)
+  }, [])
   const [update, setUpdate] = useState<UpdateState | null>(null)
   const [checking, setChecking] = useState(false)
   const [sites, setSites] = useState<SiteStat[]>([])
@@ -330,6 +337,36 @@ export default function SettingsView({
             {strings.feedback.browse}
           </button>
         </div>
+      </Group>
+
+      <Group title={strings.settings.plugins}>
+        <p className="-mt-1 text-xs text-ink-500">{strings.settings.pluginsHint}</p>
+        {plugins.length === 0 ? (
+          <p className="text-sm text-ink-700">{strings.settings.noPlugins}</p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {plugins.map((p) => (
+              <li key={p.id} className="flex items-start justify-between gap-3">
+                <span className="min-w-0">
+                  <span className="block truncate text-sm text-ink-900">{p.name}</span>
+                  {p.summary && (
+                    <span className="mt-0.5 block text-xs text-ink-500">{p.summary}</span>
+                  )}
+                </span>
+                <span className="shrink-0 text-right">
+                  <span className="block font-mono text-xs text-ink-500">{p.version}</span>
+                  {/* Origin stated plainly: one shipped with the app, the other
+                      arrived on its own and can change without a new release. */}
+                  <span className="text-[10px] uppercase tracking-wide text-ink-500">
+                    {p.fromRegistry
+                      ? strings.settings.pluginRegistry
+                      : strings.settings.pluginBundled}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </Group>
 
       <Group title={strings.settings.components}>

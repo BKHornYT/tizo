@@ -5,6 +5,7 @@ import * as queue from './queue'
 import { checkAppUpdate, checkEngineUpdate, getUpdateState, initUpdates, installNow } from './update'
 import { buildFeedback, issuesUrl, openFeedback } from './feedback'
 import { clearStats, localStats, pendingPayload, statsEnabled } from './stats'
+import { listPlugins } from './engine/plugins'
 import { acceptTerms, readTerms } from './store/terms'
 import type { FeedbackKind } from '../shared/types'
 import { resolveFfmpeg } from './engine/binaries'
@@ -110,6 +111,8 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
   })
 
   ipcMain.handle('app:quit', () => app.quit())
+
+  ipcMain.handle('plugins:list', () => listPlugins())
 
   ipcMain.handle('stats:local', () => localStats())
   ipcMain.handle('stats:pending', () => pendingPayload())

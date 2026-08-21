@@ -11,6 +11,44 @@ Newest first. One entry per change, using this format:
 
 ---
 
+## 2026-08-22 - Plugins from the registry, verified, and visible
+
+**What:** `components.json` gained a `plugins` array. Each entry is validated
+field by field, fetched with `fetchFile` - which already refuses a file whose
+sha256 does not match - and installed into `<binDir>/yt-dlp-plugins/<id>/`. A new
+"Site support" section in Options lists what is installed, its version, and
+whether it shipped with the app or arrived on its own.
+
+**Why:** Until now a new site meant an app release. This is what makes "someone
+suggests a site and it works" true without one.
+
+**Files:** src/main/components/manifest.ts, src/main/engine/plugins.ts,
+src/main/index.ts, src/main/ipc.ts, src/preload/index.ts, src/shared/types.ts,
+src/renderer/src/{strings.ts,views/SettingsView.tsx}, components.json, CLAUDE.md,
+task.md
+
+**A plugin is executable code on a user's machine**, so it gets exactly what
+ffmpeg gets and not what a config file gets: https only, from our own registry,
+sha256 checked before the file is written anywhere yt-dlp will load it. The
+validator drops any entry lacking a well-formed id, an https url or a 64-hex
+hash, because a half-written entry must be ignored rather than half-applied.
+
+**A registry entry can never replace a bundled package.** Without that rule a
+compromised registry would be a way to swap out code shipped inside the app.
+
+**Two failure modes handled deliberately:** a failed update leaves the previous
+version in place, since a bad fetch is no reason to remove working support; and
+bundled packages are replaced one at a time rather than by clearing the plugin
+root, which would have deleted registry plugins on every single launch.
+
+**Shown in Options on purpose.** Anything running on someone's machine on our
+say-so should be visible to them with its origin stated - "included" versus
+"updated" is a real difference, since one can change without a new release.
+
+**Not yet done:** no plugin has actually been published through this path, so the
+pipeline is built but untested with a real file. And `TIZO_MANIFEST_URL` still
+defaults to the public repo, so anything the manifest names remains public.
+
 ## 2026-08-22 - Read pages that refuse a plain request
 
 **What:** `fetchHtml` moved into `src/main/engine/page.ts` and gained a fallback:

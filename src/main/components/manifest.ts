@@ -22,12 +22,33 @@ export interface SiteProfile {
   concurrentFragments?: number
 }
 
+/**
+ * One yt-dlp extractor plugin delivered by the registry.
+ *
+ * A plugin is executable code that runs on a user's machine, so the rules are
+ * the same as for a binary and not negotiable: https only, from our own
+ * registry, and `sha256` checked before the file is written anywhere yt-dlp
+ * will load it. Never populate this from a user report, a page, or anything a
+ * user can influence.
+ */
+export interface PluginSpec {
+  /** Package directory name. Also the module name, with dashes as underscores. */
+  id: string
+  name: string
+  version: string
+  summary: string
+  url: string
+  /** Lowercase hex. Refuse the file if it does not match. */
+  sha256: string
+}
+
 export interface Manifest {
   schema: number
   essentials: { version: number; components: string[] }
   components: ComponentSpec[]
   siteProfiles: Record<string, SiteProfile>
   domains: Record<string, string>
+  plugins: PluginSpec[]
 }
 
 /**
@@ -56,7 +77,20 @@ function clean(raw: unknown): Manifest | null {
     essentials: m.essentials,
     components: m.components,
     siteProfiles: strip(m.siteProfiles as Record<string, SiteProfile>),
-    domains: strip(m.domains as Record<string, string>)
+    domains: strip(m.domains as Record<string, string>),
+    // Validated field by field rather than trusted: this list decides what code
+    // gets written next to the engine, so a malformed or half-written entry must
+    // be dropped rather than half-applied.
+    plugins: (Array.isArray(m.plugins) ? (m.plugins as PluginSpec[]) : []).filter(
+      (p) =>
+        p &&
+        typeof p.id === 'string' &&
+        /^[a-z0-9][a-z0-9-]{1,40}$/.test(p.id) &&
+        typeof p.url === 'string' &&
+        p.url.startsWith('https://') &&
+        typeof p.sha256 === 'string' &&
+        /^[0-9a-f]{64}$/i.test(p.sha256)
+    )
   }
 }
 

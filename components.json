@@ -73,5 +73,7 @@
   },
   "domains": {
     "_comment": "Maps a domain with no working extractor to the optional component that adds one. Empty for now \u2014 the request pipeline fills it as real cases arrive."
-  }
+  },
+  "plugins": [],
+  "_plugins_comment": "yt-dlp extractor plugins, delivered without an app release. Each entry needs id, name, version, summary, an https url and a lowercase-hex sha256, which is checked before the file is written anywhere yt-dlp loads from. This is executable code on a user machine: treat it like shipping a binary, never like shipping config, and never populate it from anything a user supplied. Keep ids generic - an id should describe the mechanism, not name a site."
 }
