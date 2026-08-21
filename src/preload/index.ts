@@ -105,6 +105,9 @@ const api = {
       ipcRenderer.invoke('queue:expand', id, urls),
     setFormat: (id: string, formatId: string): Promise<void> =>
       ipcRenderer.invoke('queue:setFormat', id, formatId),
+    /** Empty array means "no subtitles for this item", not "use the default". */
+    setSubLangs: (id: string, langs: string[]): Promise<void> =>
+      ipcRenderer.invoke('queue:setSubLangs', id, langs),
     onUpdate: (handler: (items: QueueItem[]) => void): (() => void) => {
       const listener = (_e: unknown, items: QueueItem[]): void => handler(items)
       ipcRenderer.on('queue:update', listener)

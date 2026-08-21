@@ -36,18 +36,19 @@ file — and a week later gets a bugfix without doing anything.
   integrity checking, first-run setup verified end to end against the published
   assets, setup wizard, and the core GUI — download and settings screens, format
   picker with an inline all-formats expander, speed limit, geo-bypass,
-  folder-per-download, container choice and file-collision handling, and a
+  folder-per-download, container choice and file-collision handling, MP3/M4A
+  extraction with cover art and metadata, subtitle download and embedding, and a
   queue-centred UI with concurrency, drag-and-drop, batch paste, and playlist and
   channel expansion with a per-item picker, queue sorting, paste-anywhere input,
   the update system (app + engine channels, version in the toolbar), a first-run
   terms gate, GitHub-backed suggestions and site reports, opt-in usage counting,
   and a custom app icon
-- **In progress:** Phase 5 — audio extraction and subtitles. Phases 0–4 and 8–9
-  are done; auto-update is proven working against a real release. v0.0.5 is the
-  first build that can actually upload usage counts
-- **Known broken / not started:** no audio extraction or subtitles (Phase 5), no
-  clipboard *watcher* or history or tray (Phase 6), no playlist monitoring (6.5),
-  no optional addon gates or Auth Pack (7).
+- **In progress:** Phase 6 — clipboard, history, tray. Phases 0–5 and 8–9 are
+  done; auto-update is proven working against a real release. v0.0.5 is the first
+  build that can actually upload usage counts
+- **Known broken / not started:** no clipboard *watcher* or history or tray
+  (Phase 6), no playlist monitoring (6.5), no optional addon gates or sign-in
+  window (7 — reshaped by [docs/browser-engine.md](docs/browser-engine.md)).
 - **Deployed:** the usage endpoint in `server/`, live at
   `https://tizo-stats.itemhunt-analytics.workers.dev` with `TIZO_STATS_ENDPOINT`
   set as a repo variable. Both upload routes verified against the real Worker.
@@ -147,6 +148,7 @@ resources/                 files packed into the app; resources/bin is gitignore
 docs/plan.md               phases, architecture, component schema, test matrix
 docs/features.md           feature set vs. the reference app — taken, improved, skipped
 docs/releasing.md          how to cut a release; what every release must contain
+docs/browser-engine.md     proposal: embedded Chromium for login, discovery, capture
 .github/workflows/release.yml  builds and publishes all targets on a v* tag
 ```
 
@@ -154,11 +156,26 @@ See [docs/plan.md](docs/plan.md) for architecture, the addon manifest format,
 portable-mode design, and the phase breakdown. See
 [docs/releasing.md](docs/releasing.md) for the release process. See
 [docs/features.md](docs/features.md) for the feature set and where we
-deliberately differ from the reference app.
+deliberately differ from the reference app. See
+[docs/browser-engine.md](docs/browser-engine.md) for the embedded-browser
+proposal that reshapes Phase 7.
 
 ## Key Decisions
 
 Newest first.
+
+- **2026-08-21 — A format row's identity is not always its selector.** `id` was
+  doubling as the yt-dlp expression, which broke the moment two rows selected the
+  same stream and differed only in what happened afterwards: "M4A" and "Audio
+  only" both resolve `ba[ext=m4a]/ba/b`, so the queue's `find(f => f.id === …)`
+  would have returned whichever came first and made the other unreachable.
+  Extraction rows now carry a unique `id` plus an explicit `selector`. Guarded by
+  a uniqueness assertion in `test:formats`.
+- **2026-08-21 — Subtitle choice is per item, with three states not two.**
+  `subLangs: null` means "no opinion, use the setting"; `[]` means "none for this
+  one". Collapsing those would make it impossible to turn subtitles off for a
+  single video without changing the global default and remembering to change it
+  back — the same mistake as the Normal/Expert switch rejected for formats.
 
 - **2026-08-21 — The dashboard is private; the upload routes are not.** Reverses
   the earlier "public on purpose". `GET` is behind Google sign-in with an email
@@ -265,6 +282,17 @@ Newest first.
   stack blocks adding macOS/Linux later.
 
 ## Gotchas
+
+- **Any flag that runs a postprocessor breaks a no-ffmpeg row.** `--embed-metadata`,
+  `--embed-subs`, `-x` and `--merge-output-format` all require ffmpeg, so emitting
+  them on a row marked `needsFfmpeg: false` reproduces the `bv*+ba` failure: the
+  row promises it works without the HQ pack and then hard-errors demanding it.
+  Metadata is therefore gated on `needsFfmpeg || extractAudio`, and `test:args`
+  asserts it stays off the no-ffmpeg path.
+- **`--merge-output-format` on an audio job is rejected, not ignored.** There is
+  no second stream to merge and yt-dlp refuses the combination, so extraction
+  jobs must skip it — as must subtitles, since `--embed-subs` against an mp3
+  fails rather than being dropped.
 
 - **A wired-looking telemetry path can be inert.** Reading the call sites is not
   proof; `npm run test:stats` runs the real `src/main/stats` module (with

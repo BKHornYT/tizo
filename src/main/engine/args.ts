@@ -1,4 +1,4 @@
-import type { Settings } from '../../shared/types.ts'
+import type { AudioFormat, Settings } from '../../shared/types.ts'
 
 export interface SiteTuning {
   impersonate?: string | null
@@ -23,7 +23,14 @@ export interface ArgContext {
   referer?: string | undefined
   /** Site is behind a bot wall; impersonate a browser's TLS fingerprint. */
   impersonate?: boolean | undefined
+  /** Set by an audio row: extract to this container instead of keeping video. */
+  extractAudio?: AudioFormat | undefined
+  /** Subtitle languages for this job. Empty or absent means none. */
+  subLangs?: string[] | undefined
 }
+
+/** Lossless targets, where a bitrate setting is meaningless and must be omitted. */
+const LOSSLESS: AudioFormat[] = ['flac', 'wav']
 
 export const PROGRESS_MARK = '@@TIZO@@'
 export const FILE_MARK = '@@TIZOFILE@@'
@@ -113,8 +120,57 @@ export function buildDownloadArgs(ctx: ArgContext): string[] {
     args.push('-N', String(profile.concurrentFragments))
   }
 
-  if (ctx.needsFfmpeg) {
-    if (settings.container !== 'original') {
+  /*
+   * Audio extraction.
+   *
+   * `-x` runs a postprocessor, so every extraction row carries
+   * `needsFfmpeg: true` — including the ones that only rewrap. Emitting these
+   * flags on a row marked as *not* needing ffmpeg would break the same promise
+   * as a `bv*+ba` selector does: the row claims to work without the HQ pack and
+   * then hard-errors demanding it.
+   */
+  if (ctx.extractAudio) {
+    args.push('-x')
+    if (ctx.extractAudio !== 'best') args.push('--audio-format', ctx.extractAudio)
+    // Meaningless for lossless targets; yt-dlp would carry it into the encoder.
+    if (!LOSSLESS.includes(ctx.extractAudio)) {
+      args.push('--audio-quality', `${settings.audioBitrate}K`)
+    }
+    if (settings.embedThumbnail) args.push('--embed-thumbnail')
+  }
+
+  /*
+   * Subtitles are meaningless on an audio-only job, and `--embed-subs` against
+   * an mp3 fails rather than being ignored — so they are skipped outright
+   * rather than left for ffmpeg to reject.
+   */
+  const subLangs = ctx.extractAudio ? [] : (ctx.subLangs ?? [])
+  if (subLangs.length > 0) {
+    args.push('--sub-langs', subLangs.join(','))
+    if (settings.subtitleAuto) args.push('--write-auto-subs')
+
+    // 'embed' deliberately omits --write-subs: yt-dlp fetches to a temp file and
+    // embeds, leaving no sidecar the user did not ask for.
+    if (settings.subtitleMode === 'embed' || settings.subtitleMode === 'both') {
+      args.push('--embed-subs')
+    }
+    if (settings.subtitleMode === 'file' || settings.subtitleMode === 'both') {
+      args.push('--write-subs')
+      // srt is the format every player reads; the site's native vtt/ttml is not.
+      args.push('--convert-subs', 'srt')
+    }
+  }
+
+  // Metadata needs a postprocessor too, so it follows the same rule: only on
+  // jobs that already require ffmpeg.
+  if (settings.embedMetadata && (ctx.needsFfmpeg || ctx.extractAudio)) {
+    args.push('--embed-metadata')
+  }
+
+  if (ctx.needsFfmpeg || ctx.extractAudio) {
+    // Not on an extraction job: there is no second stream to merge, and naming a
+    // video container for an mp3 makes yt-dlp reject the combination.
+    if (!ctx.extractAudio && settings.container !== 'original') {
       args.push('--merge-output-format', settings.container)
     }
     if (ctx.ffmpegDir) args.push('--ffmpeg-location', ctx.ffmpegDir)

@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import type { QueueItem } from '../../../shared/types'
 import { bytes, duration, speed } from '../format'
 import { strings } from '../strings'
@@ -63,7 +64,17 @@ export default function QueueRow({
         {item.state !== 'playlist' &&
           item.formats.length > 0 &&
           !active &&
-          item.state !== 'done' && <FormatSelect item={item} hasFfmpeg={hasFfmpeg} />}
+          item.state !== 'done' && (
+            <>
+              {/* Only offered when the video actually has tracks and the chosen
+                  row keeps its video — subtitles on an extracted mp3 are
+                  meaningless, and the download drops them anyway. */}
+              {item.subtitles.length > 0 && !format?.extractAudio && (
+                <SubtitleSelect item={item} />
+              )}
+              <FormatSelect item={item} hasFfmpeg={hasFfmpeg} />
+            </>
+          )}
 
         {active && (
           <div className="shrink-0 text-right font-mono text-xs text-ink-700">
@@ -156,6 +167,96 @@ function FormatSelect({
         </optgroup>
       )}
     </select>
+  )
+}
+
+/**
+ * Per-item subtitle choice.
+ *
+ * A multi-select rather than a dialog: the list is short, and this is a decision
+ * people make in passing on the way to pressing Download. `null` means the item
+ * has no opinion and the global default applies — which is why "Using your
+ * default" and "None for this one" are two distinct entries rather than one.
+ */
+function SubtitleSelect({ item }: { item: QueueItem }): React.JSX.Element {
+  const [open, setOpen] = useState(false)
+  const box = useRef<HTMLDivElement>(null)
+  const chosen = item.subLangs
+
+  // Close on any click that is not inside this control. Without it the panel
+  // stays open behind whatever the user does next.
+  useEffect(() => {
+    if (!open) return
+    const away = (e: MouseEvent): void => {
+      if (!box.current?.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', away)
+    return () => document.removeEventListener('mousedown', away)
+  }, [open])
+
+  const label =
+    chosen === null
+      ? strings.queue.subsDefault
+      : chosen.length === 0
+        ? strings.queue.subsNone
+        : strings.queue.subsCount(chosen.length)
+
+  const toggle = (lang: string): void => {
+    // `null` means "no opinion yet" — the first tick starts from an empty set,
+    // not from whatever the global default happens to be.
+    const current = chosen ?? []
+    const next = current.includes(lang)
+      ? current.filter((l) => l !== lang)
+      : [...current, lang]
+    void window.tizo.queue.setSubLangs(item.id, next)
+  }
+
+  return (
+    <div className="relative shrink-0" ref={box}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="max-w-[9rem] truncate rounded-md bg-ink-900/10 px-2.5 py-1.5 text-xs font-medium text-ink-900 shadow-sm transition hover:bg-ink-900/15"
+        title={strings.queue.subs}
+      >
+        {strings.queue.subs}: {label}
+      </button>
+
+      {open && (
+        <div className="absolute right-0 z-20 mt-1 max-h-56 w-44 overflow-y-auto rounded-lg border border-ink-900/10 bg-white p-1 shadow-lg">
+          <button
+            onClick={() => void window.tizo.queue.setSubLangs(item.id, [])}
+            className="w-full rounded px-2 py-1.5 text-left text-xs text-ink-700 hover:bg-ink-900/5"
+          >
+            {strings.queue.subsClear}
+          </button>
+          <div className="my-1 h-px bg-ink-900/10" />
+          {item.subtitles.map((t) => {
+            const on = (chosen ?? []).includes(t.lang)
+            return (
+              <button
+                key={t.lang}
+                onClick={() => toggle(t.lang)}
+                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-ink-900 hover:bg-ink-900/5"
+              >
+                <span
+                  className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[3px] border text-[9px] leading-none text-white ${
+                    on ? 'border-brand-500 bg-brand-500' : 'border-ink-900/25'
+                  }`}
+                >
+                  {on ? '✓' : ''}
+                </span>
+                <span className="truncate">{t.name}</span>
+                {t.automatic && (
+                  <span className="ml-auto shrink-0 text-[10px] text-ink-500">
+                    {strings.queue.subsAuto}
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 }
 

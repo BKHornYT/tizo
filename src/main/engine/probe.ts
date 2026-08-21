@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process'
 import { resolveYtdlp } from './binaries'
 import { binaryMissing, classifyError } from './errors'
-import type { MediaInfo, PlaylistInfo, Result } from '../../shared/types'
+import type { MediaInfo, PlaylistInfo, Result, SubtitleTrack } from '../../shared/types'
 import {
   IMPERSONATE_ARGS,
   listAllFormats,
@@ -61,6 +61,46 @@ interface RawInfo {
   extractor_key?: string
   extractor?: string
   formats?: RawFormat[]
+  /** lang -> tracks. yt-dlp keeps authored and machine captions in two maps. */
+  subtitles?: Record<string, Array<{ name?: string; ext?: string }>>
+  automatic_captions?: Record<string, Array<{ name?: string; ext?: string }>>
+}
+
+/** Cap on automatic captions offered. YouTube lists 100+ machine translations. */
+const AUTO_CAPTION_CAP = 40
+
+/**
+ * Flattens yt-dlp's two caption maps into one list, authored tracks first.
+ *
+ * Kept apart by the `automatic` flag rather than merged, because auto-captions
+ * are machine transcription and are regularly wrong in ways nobody would accept
+ * if they believed they were getting authored subtitles.
+ *
+ * A language present in both appears once, as the authored track — offering the
+ * machine version of a language that has a real one is never the better choice.
+ */
+function shapeSubtitles(info: RawInfo): SubtitleTrack[] {
+  const out: SubtitleTrack[] = []
+  const seen = new Set<string>()
+
+  for (const [lang, tracks] of Object.entries(info.subtitles ?? {})) {
+    if (!Array.isArray(tracks) || tracks.length === 0) continue
+    // 'live_chat' is a chat replay, not a subtitle track, and it is enormous.
+    if (lang === 'live_chat') continue
+    seen.add(lang)
+    out.push({ lang, name: tracks[0]?.name ?? lang, automatic: false })
+  }
+
+  const auto: SubtitleTrack[] = []
+  for (const [lang, tracks] of Object.entries(info.automatic_captions ?? {})) {
+    if (!Array.isArray(tracks) || tracks.length === 0) continue
+    if (seen.has(lang)) continue
+    auto.push({ lang, name: tracks[0]?.name ?? lang, automatic: true })
+  }
+
+  out.sort((a, b) => a.lang.localeCompare(b.lang))
+  auto.sort((a, b) => a.lang.localeCompare(b.lang))
+  return [...out, ...auto.slice(0, AUTO_CAPTION_CAP)]
 }
 
 /**
@@ -150,6 +190,7 @@ export async function probe(url: string): Promise<Result<MediaInfo>> {
         extractor: info.extractor_key ?? info.extractor ?? 'unknown',
         formats: shapeFormats(info.formats ?? []),
         allFormats: listAllFormats(info.formats ?? []),
+        subtitles: shapeSubtitles(info),
         // Carried through so the download uses the same route that made the
         // probe work — otherwise a site we just got past would refuse us again.
         impersonate: run.impersonated

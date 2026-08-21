@@ -11,6 +11,83 @@ Newest first. One entry per change, using this format:
 
 ---
 
+## 2026-08-21 — Phase 5: audio extraction and subtitles
+**What:** MP3 and M4A extraction rows with a bitrate setting, cover art and
+metadata embedding, and subtitles — languages read from the probe, chosen per
+item on the queue row or globally in Options, and written as an embedded track,
+a sidecar `.srt`, or both.
+**Why:** Phase 5, and audio extraction is the most common thing people want from
+a downloader after the video itself.
+**Files:** src/shared/types.ts, src/main/engine/{args,formats,probe,download,
+scrape}.ts, src/main/queue/index.ts, src/main/store/settings.ts, src/main/ipc.ts,
+src/preload/index.ts, src/renderer/src/{strings.ts,views/SettingsView.tsx,
+components/QueueRow.tsx}, scripts/test-{args,formats}.ts, CLAUDE.md, task.md
+
+**Verified against real downloads, not only asserted.** An MP3 came out of
+YouTube and ffprobe confirmed a `png` cover-art stream plus title/artist/date
+tags actually inside it. A video came out with `Me at the zoo [id].en.srt` beside
+it and a `mov_text` subtitle stream embedded and tagged `language=eng`. Both were
+run with the exact argument list `buildDownloadArgs` produces.
+
+**Two bugs fixed on the way, both the same shape as earlier ones:**
+
+*The stream check could never match.* `formats.ts` tested `protocol` against a
+`.m3u8` **file extension**, but `protocol` names a transport — `https`,
+`m3u8_native`, `http_dash_segments` — and is never a URL. Only the literal
+`m3u8_native` comparison beside it did any work, so plain m3u8 and DASH came back
+claiming they needed no ffmpeg. Impact was masked because Essentials is mandatory
+and ffmpeg is always present; it would have surfaced as soon as the Phase 7
+capability gate started trusting the flag.
+
+*Two rows shared an identity.* `FormatOption.id` doubled as the yt-dlp selector,
+which held only while every row selected something different. "M4A" and "Audio
+only" resolve the same stream and differ only in what ffmpeg does afterwards, so
+the queue's lookup by id would have made one unreachable. Rows now carry a unique
+`id` plus an explicit `selector`, and a uniqueness assertion guards it.
+
+**A postprocessor flag on a no-ffmpeg row is the `bv*+ba` bug again.**
+`--embed-metadata`, `--embed-subs`, `-x` and `--merge-output-format` all require
+ffmpeg, so a row advertising that it needs no HQ pack must emit none of them.
+Metadata is gated on `needsFfmpeg || extractAudio`, and there is an assertion that
+it stays off the no-ffmpeg path. `--merge-output-format` is skipped on audio jobs
+because yt-dlp rejects the combination rather than ignoring it, and subtitles are
+dropped there for the same reason.
+
+**Subtitle choice has three states, not two.** `null` means "no opinion, use the
+setting"; `[]` means "none for this one". Collapsing them would make turning
+subtitles off for a single video require changing the global default and
+remembering to change it back — the objection that killed the Normal/Expert
+switch for formats.
+
+## 2026-08-21 — Plan: the embedded browser
+**What:** Wrote [docs/browser-engine.md](docs/browser-engine.md) — a proposal for
+using Electron's own Chromium for three things: signing in to sites, discovering
+media by watching what a player actually fetches, and, last of all, capturing the
+transfer itself. Four rungs, cheapest first, mapped onto the existing
+probe -> impersonate -> scrape chain.
+**Why:** Phase 7's Auth Pack was designed around `--cookies-from-browser`, which
+has stopped working on Chrome for Windows (App-Bound Encryption) and, from an
+unsigned executable, is the textbook behavioural signature of an infostealer.
+**Files:** docs/browser-engine.md, CLAUDE.md, task.md
+
+**The key point is rung 3, not rung 4.** When a media URL "only works in the
+browser" it is almost always the *request context* that matters -- Referer,
+Origin, cookies -- not the browser doing the transfer. Replaying captured headers
+keeps yt-dlp as the single download engine, which is what preserves progress,
+resume from `.part`, cancel and the twelve error codes.
+
+**Rung 4 is a second download engine** and is written up as such: different
+progress semantics, no meaningful resume, and every future queue change made
+twice. Recommended only on evidence from failure telemetry, never speculatively.
+
+**It also collapses the addon framing.** Chromium is already in the binary, so
+there is nothing to download and nothing to gate -- what Phase 7 called an Auth
+Pack becomes a button that appears on `AUTH_REQUIRED` / `AGE_RESTRICTED`.
+
+**Nothing is built.** One item flagged to verify first: whether an Electron
+partition's cookie store is DPAPI-encrypted at rest. If not, sessions sit in
+plain SQLite and that has to be closed with `safeStorage` before it ships.
+
 ## 2026-08-21 — v0.0.5: the first build that can actually upload
 **What:** Bumped to 0.0.5 — the first release whose bundle carries a real
 `TIZO_STATS_ENDPOINT`. Added `npm run test:stats`, which runs the **real**

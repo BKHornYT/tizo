@@ -117,6 +117,13 @@ export const strings = {
     reveal: 'Show file',
     allFormatsGroup: 'All formats',
     bestGroup: 'Recommended',
+    subs: 'Subtitles',
+    subsNone: 'None',
+    subsCount: (n: number) => `${n} selected`,
+    subsUnavailable: 'This video has none',
+    subsAuto: 'auto',
+    subsDefault: 'Using your default',
+    subsClear: 'None for this one',
     playlistCount: (shown: number, total: number) =>
       shown < total ? `${shown} of ${total} videos` : `${total} videos`,
     choose: 'Choose videos',
@@ -202,6 +209,33 @@ export const strings = {
 
     concurrent: 'Downloads at once',
     concurrentHint: 'Used by the download queue.',
+
+    audio: 'Audio extraction',
+    audioHint:
+      'Applies when you pick MP3 or M4A for a download. Converting always needs the HQ pack.',
+    audioBitrate: 'Audio quality',
+    audioBitrateHint:
+      'Higher is bigger, not always better — most people cannot hear the difference above 192.',
+    embedThumbnail: 'Embed cover art',
+    embedThumbnailHint: 'Uses the video thumbnail as the track artwork.',
+    embedMetadata: 'Embed title and artist',
+    embedMetadataHint: 'Writes the video title, uploader and date into the file.',
+
+    subtitles: 'Subtitles',
+    subtitlesHint:
+      'Default languages for new downloads. Each item can be changed on its own row before it starts.',
+    subtitleLangs: 'Languages',
+    subtitleLangsHint:
+      'Comma-separated language codes, for example: en, nb, es. Leave empty for none.',
+    subtitleAuto: 'Allow automatic captions',
+    subtitleAutoHint:
+      'Machine transcription, used when a site has no authored subtitles. Often wrong, and never as good as the real thing.',
+    subtitleMode: 'Save subtitles as',
+    subtitleModes: {
+      embed: 'Inside the video file',
+      file: 'Separate .srt files',
+      both: 'Both'
+    },
 
     updates: 'Updates',
     updatesHint:

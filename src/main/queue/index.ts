@@ -56,6 +56,8 @@ function blank(url: string): QueueItem {
     formats: [],
     allFormats: [],
     formatId: null,
+    subtitles: [],
+    subLangs: null,
     percent: null,
     speed: null,
     eta: null,
@@ -174,6 +176,7 @@ async function runProbe(id: string, hasFfmpeg: boolean): Promise<void> {
     extractor: info.extractor,
     formats: info.formats,
     allFormats: info.allFormats,
+    subtitles: info.subtitles,
     formatId: chosen?.id ?? null,
     url: info.webpageUrl,
     impersonate: info.impersonate
@@ -211,6 +214,21 @@ export function setFormat(id: string, formatId: string): void {
   const item = items.get(id)
   if (!item || item.state === 'downloading' || item.state === 'processing') return
   patch(id, { formatId })
+}
+
+/**
+ * Chooses subtitle languages for one item.
+ *
+ * Stored per item rather than only globally so a single video can differ from
+ * the default without changing it for everything after. An empty array is a real
+ * choice — "none for this one" — and is kept distinct from `null`, which means
+ * the item has no opinion and the setting applies.
+ */
+export function setSubLangs(id: string, langs: string[]): void {
+  const item = items.get(id)
+  if (!item || item.state === 'downloading' || item.state === 'processing') return
+  const offered = new Set(item.subtitles.map((t) => t.lang))
+  patch(id, { subLangs: langs.filter((l) => offered.has(l)) })
 }
 
 export function remove(id: string): void {
@@ -333,9 +351,15 @@ async function pump(): Promise<void> {
 
       const request = {
         url: item.url,
-        format: item.formatId,
+        // `selector` only differs on rows whose identity is not a selector —
+        // the audio-extraction ones. Everywhere else the id is the expression.
+        format: format?.selector ?? item.formatId,
         needsFfmpeg: format?.needsFfmpeg ?? false,
         impersonate: item.impersonate,
+        ...(format?.extractAudio ? { extractAudio: format.extractAudio } : {}),
+        // `null` means the user never chose for this item, so the global default
+        // applies; `[]` is a deliberate "none for this one" and must survive.
+        subLangs: item.subLangs ?? settings.subtitleLangs,
         ...(item.directUrl ? { directUrl: item.directUrl } : {})
       }
 

@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react'
 import type {
+  AudioBitrate,
   Container,
   EngineStatus,
   FeedbackKind,
   FileExistsRule,
   Settings,
   SiteStat,
+  SubtitleMode,
   UpdateState
 } from '../../../shared/types'
+import { AUDIO_BITRATES } from '../../../shared/types'
 import { strings } from '../strings'
 import { terms as termsCopy } from '../terms'
 import FeedbackDialog from '../components/FeedbackDialog'
@@ -23,6 +26,23 @@ const SPEED_PRESETS: Array<{ label: string; value: number | null }> = [
 
 const RULES: FileExistsRule[] = ['skip-if-same', 'rename', 'overwrite', 'ask']
 const CONTAINERS: Container[] = ['mp4', 'mkv', 'original']
+const SUB_MODES: SubtitleMode[] = ['embed', 'file', 'both']
+
+/**
+ * The stored value is a list; the field is one comma-separated line, which is
+ * how people actually think about "en, nb". Anything that is not a plain
+ * language code is dropped rather than sent to the command line.
+ */
+function parseLangs(text: string): string[] {
+  return [
+    ...new Set(
+      text
+        .split(',')
+        .map((l) => l.trim().toLowerCase())
+        .filter((l) => /^[a-z0-9-]{1,20}$/.test(l))
+    )
+  ].slice(0, 20)
+}
 
 export default function SettingsView({
   status,
@@ -125,6 +145,65 @@ export default function SettingsView({
           hint={strings.settings.geoBypassHint}
           checked={settings.geoBypass}
           onChange={(v) => void patch({ geoBypass: v })}
+        />
+      </Group>
+
+      <Group title={strings.settings.audio}>
+        <p className="-mt-1 text-xs text-ink-500">{strings.settings.audioHint}</p>
+
+        <Row label={strings.settings.audioBitrate} hint={strings.settings.audioBitrateHint}>
+          <Select
+            value={String(settings.audioBitrate)}
+            onChange={(v) => void patch({ audioBitrate: Number(v) as AudioBitrate })}
+            options={AUDIO_BITRATES.map((b) => ({ value: String(b), label: `${b} kbps` }))}
+          />
+        </Row>
+
+        <Toggle
+          label={strings.settings.embedThumbnail}
+          hint={strings.settings.embedThumbnailHint}
+          checked={settings.embedThumbnail}
+          onChange={(v) => void patch({ embedThumbnail: v })}
+        />
+        <Toggle
+          label={strings.settings.embedMetadata}
+          hint={strings.settings.embedMetadataHint}
+          checked={settings.embedMetadata}
+          onChange={(v) => void patch({ embedMetadata: v })}
+        />
+      </Group>
+
+      <Group title={strings.settings.subtitles}>
+        <p className="-mt-1 text-xs text-ink-500">{strings.settings.subtitlesHint}</p>
+
+        <Row label={strings.settings.subtitleLangs} hint={strings.settings.subtitleLangsHint}>
+          <input
+            type="text"
+            defaultValue={settings.subtitleLangs.join(', ')}
+            placeholder="en, nb"
+            // Committed on blur rather than per keystroke: parsing mid-typing
+            // would delete the separator the moment it was typed.
+            onBlur={(e) => void patch({ subtitleLangs: parseLangs(e.target.value) })}
+            className="w-full rounded-md border border-ink-900/10 bg-white px-3 py-2 text-sm text-ink-900 outline-none focus:border-brand-500"
+          />
+        </Row>
+
+        <Row label={strings.settings.subtitleMode} hint="">
+          <Select
+            value={settings.subtitleMode}
+            onChange={(v) => void patch({ subtitleMode: v as SubtitleMode })}
+            options={SUB_MODES.map((m) => ({
+              value: m,
+              label: strings.settings.subtitleModes[m]
+            }))}
+          />
+        </Row>
+
+        <Toggle
+          label={strings.settings.subtitleAuto}
+          hint={strings.settings.subtitleAutoHint}
+          checked={settings.subtitleAuto}
+          onChange={(v) => void patch({ subtitleAuto: v })}
         />
       </Group>
 

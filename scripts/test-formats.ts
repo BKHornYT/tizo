@@ -70,6 +70,48 @@ const hls: RawFormat[] = [{ format_id: 'hls-720', ext: 'mp4', protocol: 'm3u8_na
 ok('stream manifest is offered', shapeFormats(hls).length === 1)
 ok('stream manifest is flagged as needing ffmpeg', shapeFormats(hls)[0]?.needsFfmpeg === true)
 
+/*
+ * The other streaming transports. These regressed silently: the check tested
+ * `protocol` against a `.m3u8` *file extension*, which a protocol name can never
+ * match, so only the literal 'm3u8_native' comparison beside it did any work.
+ * Plain m3u8 and DASH came back claiming they needed no ffmpeg.
+ */
+for (const protocol of ['m3u8', 'http_dash_segments']) {
+  const shaped = shapeFormats([{ format_id: 's', ext: 'mp4', protocol }])
+  ok(`${protocol} is flagged as needing ffmpeg`, shaped[0]?.needsFfmpeg === true, protocol)
+}
+ok(
+  'a plain https file is NOT flagged as needing ffmpeg',
+  shapeFormats([{ format_id: 's', ext: 'mp4', protocol: 'https' }])[0]?.needsFfmpeg === false
+)
+
+// --- Audio extraction rows -------------------------------------------------
+const withAudio: RawFormat[] = [
+  { format_id: '140', ext: 'm4a', vcodec: 'none', acodec: 'mp4a', abr: 128 },
+  { format_id: '137', ext: 'mp4', vcodec: 'avc1', acodec: 'none', height: 1080 }
+]
+const audioRows = shapeFormats(withAudio).filter((f) => f.kind === 'audio')
+const mp3 = audioRows.find((f) => f.extractAudio === 'mp3')
+const m4a = audioRows.find((f) => f.extractAudio === 'm4a')
+const plain = audioRows.find((f) => !f.extractAudio)
+
+ok('MP3 and M4A extraction rows are offered', Boolean(mp3 && m4a))
+ok('the untouched "Audio only" row survives', Boolean(plain))
+ok('extraction always needs ffmpeg', mp3?.needsFfmpeg === true && m4a?.needsFfmpeg === true)
+ok('the no-conversion row still does not', plain?.needsFfmpeg === false)
+ok(
+  'MP3 reports no size — it is re-encoded, so the source size would be a guess',
+  mp3?.filesize === null
+)
+// Identity and selector are separate for exactly this reason: M4A and
+// "Audio only" select the same stream, so a shared id would make one of them
+// unreachable when the queue looks the choice back up.
+ok(
+  'every option id is unique',
+  new Set(shapeFormats(withAudio).map((f) => f.id)).size === shapeFormats(withAudio).length
+)
+ok('extraction rows carry a selector distinct from their id', mp3?.selector === 'ba/b')
+
 console.log(failures === 0 ? '\nAll checks passed.' : `\n${failures} check(s) failed.`)
 // Set the code rather than calling process.exit(): forcing an exit while the
 // type-stripping loader still has async handles open trips a libuv assertion on

@@ -101,11 +101,23 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
 - [x] Confirmed the endpoint is inside the shipped `app.asar` — the one check
       the original bug would have failed
 
-### Phase 5 — Audio + subtitles  ← NEXT
-- [ ] MP3/M4A extraction w/ bitrate picker, thumbnail + metadata embed
-- [ ] Subtitle language picker, download and/or embed
+### Phase 5 — Audio + subtitles ✅ complete
+- [x] MP3 and M4A extraction rows, bitrate picker in Options (320/256/192/128)
+- [x] Cover art and metadata embedding, both switchable
+- [x] Subtitle languages parsed from the probe, authored tracks before automatic
+- [x] Per-item language picker on the queue row; global default in Options
+- [x] Embed / sidecar .srt / both, with `--convert-subs srt` for the sidecar
+- [x] Subtitles skipped entirely on audio jobs — `--embed-subs` fails on an mp3
+- [x] Fixed: the stream check tested `protocol` against a file extension and so
+      could never match, leaving DASH and plain m3u8 claiming they need no ffmpeg
+- [x] Fixed: format rows needed a unique identity separate from their selector
+- [x] 95 offline assertions across args, formats and stats
+- [x] **Verified against real downloads**, not just asserted: an MP3 came out
+      with cover art and tags confirmed by ffprobe, and a video came out with an
+      `.en.srt` beside it and a `mov_text` track embedded and tagged `eng`
 
-### Phase 6 — Clipboard + history
+### Phase 6 — Clipboard + history  ← NEXT
+
 - [ ] Clipboard watcher with toast prompt (opt-out in settings)
 - [ ] Persistent searchable history, re-download, clear
 - [ ] Minimize to tray instead of closing
@@ -115,8 +127,16 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
 - [ ] Per-watch mode: notify (default) or auto-download — never auto by default
 
 ### Phase 7 — Optional addons + site requests
+> **Reshaped by [docs/browser-engine.md](docs/browser-engine.md).** The Auth Pack
+> was planned around `--cookies-from-browser`, which cannot read Chrome on
+> Windows any more and, from an unsigned exe, looks exactly like an infostealer.
+> Electron's own Chromium removes all of that — and since Chromium is already in
+> the binary there is nothing to download, so the "addon" framing collapses into
+> a UI affordance. Not decided yet.
+
 - [ ] Registry `domains` map + capability gate popups
-- [ ] Auth Pack (cookies-from-browser, login) for age/login-gated sites
+- [ ] Sign-in window on its own partition, cookies exported to `--cookies`
+      (replaces cookies-from-browser)
 - [ ] "Request this site" → prefilled GitHub issue (domain + version + sanitised
       error only; no URL path, no personal data)
 - [ ] Site profile revisions publishable without an app release

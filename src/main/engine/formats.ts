@@ -42,6 +42,20 @@ const isSelfContained = (f: RawFormat): boolean =>
 
 const sizeOf = (f: RawFormat): number | null => f.filesize ?? f.filesize_approx ?? null
 
+/**
+ * True for segmented/streaming transports, which always need ffmpeg to become
+ * one playable file.
+ *
+ * `protocol` names a *transport* — `https`, `m3u8_native`, `http_dash_segments`
+ * — and is never a URL. An earlier version tested it against a `.m3u8` file
+ * extension, which could not match anything, so only the literal `m3u8_native`
+ * comparison beside it did any work. Plain `m3u8` and DASH therefore came back
+ * claiming they needed no ffmpeg. The page scanner tests the URL because there
+ * it genuinely has one; here there is only the protocol name.
+ */
+const isStream = (f: RawFormat): boolean =>
+  /^(m3u8|m3u8_native|http_dash_segments|dash|ism|rtsp|rtmp)/i.test(f.protocol ?? '')
+
 function humanHeight(h: number): string {
   if (h >= 4320) return '8K'
   if (h >= 2160) return '4K'
@@ -134,7 +148,7 @@ export function shapeFormats(raw: RawFormat[]): FormatOption[] {
   // all, even though yt-dlp had already found the file.
   if (heights.length === 0 && usable.length > 0) {
     const best = [...usable].sort((a, b) => (b.tbr ?? 0) - (a.tbr ?? 0))[0]!
-    const stream = /\.(m3u8|mpd)(\?|$)/i.test(best.protocol ?? '') || best.protocol === 'm3u8_native'
+    const stream = isStream(best)
     options.push({
       id: 'b',
       label: 'Original quality',
@@ -159,6 +173,41 @@ export function shapeFormats(raw: RawFormat[]): FormatOption[] {
       filesize: bestAudioSize,
       needsFfmpeg: false,
       note: 'Original audio, no conversion'
+    })
+
+    // Extraction rows. `-x` always invokes ffmpeg, even when the container is
+    // only being rewrapped, so every one of these needs the HQ pack — the row
+    // above stays as the no-ffmpeg path.
+    options.push({
+      // Identity, not a selector: this row and "Audio only" pick the same stream
+      // and differ only in what ffmpeg does to it afterwards.
+      id: 'audio-mp3',
+      selector: 'ba/b',
+      label: 'MP3',
+      kind: 'audio',
+      height: null,
+      fps: null,
+      ext: 'mp3',
+      // Re-encoded at the configured bitrate, so the source size says nothing
+      // useful about the result. Showing it would be a guess presented as fact.
+      filesize: null,
+      needsFfmpeg: true,
+      note: 'Converted — plays anywhere',
+      extractAudio: 'mp3'
+    })
+
+    options.push({
+      id: 'audio-m4a',
+      selector: 'ba[ext=m4a]/ba/b',
+      label: 'M4A',
+      kind: 'audio',
+      height: null,
+      fps: null,
+      ext: 'm4a',
+      filesize: bestAudioSize,
+      needsFfmpeg: true,
+      note: 'Kept as-is when the source is already AAC',
+      extractAudio: 'm4a'
     })
   }
 

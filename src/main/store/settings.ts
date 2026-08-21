@@ -1,12 +1,20 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { dataDir, defaultDownloadDir } from '../paths'
-import type { Container, FileExistsRule, Settings } from '../../shared/types'
+import type {
+  AudioBitrate,
+  Container,
+  FileExistsRule,
+  Settings,
+  SubtitleMode
+} from '../../shared/types'
+import { AUDIO_BITRATES } from '../../shared/types'
 
 const FILE = 'settings.json'
 
 const RULES: FileExistsRule[] = ['skip-if-same', 'rename', 'overwrite', 'ask']
 const CONTAINERS: Container[] = ['mp4', 'mkv', 'original']
+const SUB_MODES: SubtitleMode[] = ['embed', 'file', 'both']
 
 function defaults(): Settings {
   return {
@@ -23,7 +31,20 @@ function defaults(): Settings {
     // Opt-in, never opt-out. Aggregate counts are low-risk, but silently
     // switched-on telemetry in a downloader costs trust the one time someone
     // notices — and it should be their call regardless.
-    shareStats: false
+    shareStats: false,
+
+    // 192 rather than 320: the difference is inaudible to most people on most
+    // equipment, and the file is a third smaller. Anyone who disagrees knows
+    // enough to change it.
+    audioBitrate: 192,
+    embedThumbnail: true,
+    embedMetadata: true,
+
+    // Off by default. Subtitles are a deliberate choice, and fetching them for
+    // everyone would add files most people did not ask for.
+    subtitleLangs: [],
+    subtitleAuto: false,
+    subtitleMode: 'embed'
   }
 }
 
@@ -57,7 +78,25 @@ function coerce(raw: unknown): Settings {
     concurrentDownloads: num(r['concurrentDownloads'], 1, 10, base.concurrentDownloads),
     clipboardWatch:
       typeof r['clipboardWatch'] === 'boolean' ? r['clipboardWatch'] : base.clipboardWatch,
-    shareStats: typeof r['shareStats'] === 'boolean' ? r['shareStats'] : base.shareStats
+    shareStats: typeof r['shareStats'] === 'boolean' ? r['shareStats'] : base.shareStats,
+    audioBitrate: AUDIO_BITRATES.includes(r['audioBitrate'] as AudioBitrate)
+      ? (r['audioBitrate'] as AudioBitrate)
+      : base.audioBitrate,
+    embedThumbnail:
+      typeof r['embedThumbnail'] === 'boolean' ? r['embedThumbnail'] : base.embedThumbnail,
+    embedMetadata:
+      typeof r['embedMetadata'] === 'boolean' ? r['embedMetadata'] : base.embedMetadata,
+    // Codes go to the command line, so anything that is not a plain language
+    // code is dropped rather than passed through.
+    subtitleLangs: Array.isArray(r['subtitleLangs'])
+      ? (r['subtitleLangs'] as unknown[])
+          .filter((l): l is string => typeof l === 'string' && /^[a-zA-Z0-9-]{1,20}$/.test(l))
+          .slice(0, 20)
+      : base.subtitleLangs,
+    subtitleAuto: typeof r['subtitleAuto'] === 'boolean' ? r['subtitleAuto'] : base.subtitleAuto,
+    subtitleMode: SUB_MODES.includes(r['subtitleMode'] as SubtitleMode)
+      ? (r['subtitleMode'] as SubtitleMode)
+      : base.subtitleMode
   }
 }
 

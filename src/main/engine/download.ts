@@ -7,7 +7,7 @@ import { binaryMissing, classifyError } from './errors'
 import { buildDownloadArgs, profileFor, FILE_MARK, PROGRESS_MARK, type SiteTuning } from './args'
 import { loadSettings } from '../store/settings'
 import { loadManifest } from '../components/manifest'
-import type { EngineError, ProgressEvent, Settings } from '../../shared/types'
+import type { AudioFormat, EngineError, ProgressEvent, Settings } from '../../shared/types'
 
 interface RawProgress {
   status?: string
@@ -33,6 +33,10 @@ export interface DownloadRequest {
   impersonate?: boolean
   /** Set after the user has answered a file-exists prompt. */
   resolveConflict?: 'overwrite' | 'rename'
+  /** From the chosen row: extract audio into this container instead of video. */
+  extractAudio?: AudioFormat
+  /** Subtitle languages chosen for this item. */
+  subLangs?: string[]
 }
 
 export type StartResult =
@@ -138,12 +142,14 @@ export async function startDownload(
   const ffmpeg = await resolveFfmpeg()
   // The capability gate: refuse before spawning rather than letting yt-dlp fail
   // halfway through, so the UI can offer the HQ pack with nothing half-written.
-  if (req.needsFfmpeg && !ffmpeg.found) {
+  if ((req.needsFfmpeg || req.extractAudio) && !ffmpeg.found) {
     return {
       ok: false,
       error: {
         code: 'FFMPEG_REQUIRED',
-        message: 'This quality needs the HQ pack, which is not installed yet.'
+        message: req.extractAudio
+          ? 'Converting audio needs the HQ pack, which is not installed yet.'
+          : 'This quality needs the HQ pack, which is not installed yet.'
       }
     }
   }
@@ -169,7 +175,9 @@ export async function startDownload(
     profile,
     ffmpegDir,
     referer,
-    impersonate: req.impersonate ?? false
+    impersonate: req.impersonate ?? false,
+    extractAudio: req.extractAudio,
+    subLangs: req.subLangs ?? []
   }
 
   let collisionSuffix: string | undefined

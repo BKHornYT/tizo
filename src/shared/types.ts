@@ -48,8 +48,25 @@ export interface EngineError {
   domain?: string
 }
 
+/** Containers yt-dlp can extract audio into. `best` keeps whatever came down. */
+export type AudioFormat = 'mp3' | 'm4a' | 'opus' | 'flac' | 'wav' | 'best'
+
+export const AUDIO_BITRATES = [320, 256, 192, 128] as const
+export type AudioBitrate = (typeof AUDIO_BITRATES)[number]
+
 export interface FormatOption {
+  /**
+   * Identity, and usually also the yt-dlp selector. Must be unique within a
+   * list: the queue resolves the chosen row by matching this, so two rows
+   * sharing an id makes the second unreachable.
+   */
   id: string
+  /**
+   * The yt-dlp selector, when it differs from `id`. Audio-extraction rows need
+   * this: "M4A" and "Audio only" both select the same stream and differ only in
+   * what happens afterwards, so they cannot share an identity.
+   */
+  selector?: string
   label: string
   kind: 'video' | 'audio'
   height: number | null
@@ -60,7 +77,35 @@ export interface FormatOption {
   /** True when the format must be muxed or converted, i.e. needs the HQ pack. */
   needsFfmpeg: boolean
   note?: string
+  /**
+   * Present only on rows that extract audio to a chosen container. The download
+   * adds `-x --audio-format …`; without this the row is a plain stream download
+   * and no conversion happens.
+   */
+  extractAudio?: AudioFormat
 }
+
+/**
+ * One subtitle track offered by the site.
+ *
+ * `automatic` separates real subtitles from machine transcription. They are kept
+ * apart in the UI because auto-captions are frequently wrong in ways a person
+ * would not accept if they thought they were getting authored subtitles.
+ */
+export interface SubtitleTrack {
+  lang: string
+  name: string
+  automatic: boolean
+}
+
+/**
+ * What to do with the chosen subtitle tracks.
+ *
+ * `embed` puts them inside the video (mp4 and mkv only); `file` writes sidecar
+ * .srt files next to it; `both` does each. Sidecars are not merely a fallback —
+ * they are what a player on another device is most likely to read.
+ */
+export type SubtitleMode = 'embed' | 'file' | 'both'
 
 export interface MediaInfo {
   id: string
@@ -75,6 +120,8 @@ export interface MediaInfo {
   formats: FormatOption[]
   /** Every usable format, revealed by the "All formats" expander. */
   allFormats: FormatOption[]
+  /** Authored tracks first, then automatic captions. Empty when none exist. */
+  subtitles: SubtitleTrack[]
   /**
    * True when the probe only succeeded with browser impersonation. The download
    * must use the same route, or a site we just got past will refuse us again.
@@ -166,6 +213,21 @@ export interface Settings {
   clipboardWatch: boolean
   /** Opt-in. Shares only a domain-to-count tally; off unless chosen. */
   shareStats: boolean
+
+  // --- Audio extraction ---
+  /** Target bitrate for lossy audio extraction. Ignored by flac and wav. */
+  audioBitrate: AudioBitrate
+  /** Embed cover art into extracted audio. */
+  embedThumbnail: boolean
+  /** Embed title, artist and date into extracted audio and merged video. */
+  embedMetadata: boolean
+
+  // --- Subtitles ---
+  /** Languages to fetch, as yt-dlp language codes. Empty means none. */
+  subtitleLangs: string[]
+  /** Include machine-generated captions when a real track is unavailable. */
+  subtitleAuto: boolean
+  subtitleMode: SubtitleMode
 }
 
 // --- Download queue --------------------------------------------------------
@@ -212,6 +274,15 @@ export interface QueueItem {
   allFormats: FormatOption[]
   /** Selected format id; defaults to the best option that works right now. */
   formatId: string | null
+
+  /** Tracks this item offers. Empty when the site has none. */
+  subtitles: SubtitleTrack[]
+  /**
+   * Languages chosen for this item. `null` means "not chosen", and the settings
+   * default applies — distinct from `[]`, which is a deliberate "no subtitles"
+   * for this one item and must not be overridden by the default.
+   */
+  subLangs: string[] | null
 
   percent: number | null
   speed: number | null

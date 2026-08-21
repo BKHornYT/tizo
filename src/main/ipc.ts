@@ -152,6 +152,14 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
     if (typeof id === 'string' && typeof formatId === 'string') queue.setFormat(id, formatId)
   })
 
+  ipcMain.handle('queue:setSubLangs', (_e, id: unknown, langs: unknown) => {
+    if (typeof id !== 'string' || !Array.isArray(langs)) return
+    queue.setSubLangs(
+      id,
+      langs.filter((l): l is string => typeof l === 'string')
+    )
+  })
+
   ipcMain.handle('settings:get', () => loadSettings())
 
   ipcMain.handle('settings:set', (_e, patch: unknown) =>

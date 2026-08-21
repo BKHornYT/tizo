@@ -19,7 +19,13 @@ const BASE: Settings = {
   container: 'mp4',
   concurrentDownloads: 3,
   clipboardWatch: false,
-  shareStats: false
+  shareStats: false,
+  audioBitrate: 192,
+  embedThumbnail: true,
+  embedMetadata: true,
+  subtitleLangs: [],
+  subtitleAuto: false,
+  subtitleMode: 'embed'
 }
 
 const ctx = (settings: Partial<Settings>, extra: Record<string, unknown> = {}): string[] =>
@@ -133,6 +139,95 @@ ok(
   hasPair(ctx({}, { ffmpegDir: 'C:\\bin' }), '--ffmpeg-location', 'C:\\bin')
 )
 ok('no ffmpeg location when we do not own one', !ctx({}).includes('--ffmpeg-location'))
+
+// --- Audio extraction ------------------------------------------------------
+const mp3 = ctx({ audioBitrate: 320 }, { extractAudio: 'mp3' })
+ok('extraction passes -x', mp3.includes('-x'))
+ok('extraction names the container', hasPair(mp3, '--audio-format', 'mp3'))
+ok('the bitrate setting reaches the encoder', hasPair(mp3, '--audio-quality', '320K'))
+ok('no extraction flags on a plain video job', !ctx({}).includes('-x'))
+
+// A bitrate on a lossless target is meaningless, and yt-dlp would carry it
+// straight into the encoder rather than ignoring it.
+ok('no bitrate is sent for flac', !ctx({}, { extractAudio: 'flac' }).includes('--audio-quality'))
+ok('flac still passes -x', ctx({}, { extractAudio: 'flac' }).includes('-x'))
+
+// Naming a video container on an audio job makes yt-dlp reject the combination.
+ok(
+  'no --merge-output-format on an extraction job',
+  !ctx({ container: 'mkv' }, { extractAudio: 'mp3' }).includes('--merge-output-format')
+)
+ok(
+  'merge container still applies to a video job',
+  hasPair(ctx({ container: 'mkv' }), '--merge-output-format', 'mkv')
+)
+
+ok(
+  'cover art is embedded when asked',
+  ctx({ embedThumbnail: true }, { extractAudio: 'mp3' }).includes('--embed-thumbnail')
+)
+ok(
+  'cover art is not embedded when off',
+  !ctx({ embedThumbnail: false }, { extractAudio: 'mp3' }).includes('--embed-thumbnail')
+)
+
+/*
+ * Metadata needs a postprocessor, so it follows the ffmpeg rule: a row marked as
+ * NOT needing ffmpeg must not emit a flag that demands it. Same failure mode as
+ * a `bv*+ba` selector on a no-ffmpeg row — the job hard-errors rather than
+ * falling back.
+ */
+ok(
+  'metadata is embedded on a job that already needs ffmpeg',
+  ctx({ embedMetadata: true }).includes('--embed-metadata')
+)
+ok(
+  'metadata is NOT embedded on a job that avoids ffmpeg',
+  !buildDownloadArgs({
+    url: 'https://example.com/v',
+    format: 'b[height<=360]',
+    outDir: 'C:\\out',
+    needsFfmpeg: false,
+    settings: { ...BASE, embedMetadata: true }
+  }).includes('--embed-metadata')
+)
+
+// --- Subtitles -------------------------------------------------------------
+const subs = (settings: Partial<Settings>, langs: string[]): string[] =>
+  ctx(settings, { subLangs: langs })
+
+ok(
+  'chosen languages reach the command line',
+  hasPair(subs({}, ['en', 'nb']), '--sub-langs', 'en,nb')
+)
+ok('no subtitle flags when none are chosen', !subs({}, []).includes('--sub-langs'))
+
+ok('embed mode embeds', subs({ subtitleMode: 'embed' }, ['en']).includes('--embed-subs'))
+ok(
+  'embed mode writes no sidecar the user did not ask for',
+  !subs({ subtitleMode: 'embed' }, ['en']).includes('--write-subs')
+)
+ok('file mode writes sidecars', subs({ subtitleMode: 'file' }, ['en']).includes('--write-subs'))
+ok(
+  'file mode converts to srt, which every player reads',
+  hasPair(subs({ subtitleMode: 'file' }, ['en']), '--convert-subs', 'srt')
+)
+ok(
+  'both mode does both',
+  subs({ subtitleMode: 'both' }, ['en']).includes('--embed-subs') &&
+    subs({ subtitleMode: 'both' }, ['en']).includes('--write-subs')
+)
+ok(
+  'automatic captions are opt-in',
+  !subs({ subtitleAuto: false }, ['en']).includes('--write-auto-subs') &&
+    subs({ subtitleAuto: true }, ['en']).includes('--write-auto-subs')
+)
+
+// Subtitles on an mp3 are not merely useless — `--embed-subs` fails against one.
+ok(
+  'subtitles are dropped entirely on an audio-extraction job',
+  !ctx({}, { extractAudio: 'mp3', subLangs: ['en'] }).includes('--sub-langs')
+)
 
 console.log(failures === 0 ? '\nAll checks passed.' : `\n${failures} check(s) failed.`)
 // Set the code rather than calling process.exit(): forcing an exit while the

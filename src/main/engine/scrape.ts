@@ -194,6 +194,9 @@ export async function scrapePage(pageUrl: string): Promise<ScrapeResult | null> 
       thumbnail: null,
       webpageUrl: pageUrl,
       extractor: 'page scan',
+      // A scan finds a media file, not a caption track — there is no metadata
+      // here to enumerate subtitles from.
+      subtitles: [],
       formats: [
         {
           id: 'b',
