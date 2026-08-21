@@ -8,3 +8,6 @@ dist/
 *.pfx
 resources/bin/
 # build/iconsrc is kept: it is the source for scripts/build-icon.mjs
+
+# yt-dlp page dumps: filenames carry the page title and host.
+*.dump

@@ -25,7 +25,9 @@ from yt_dlp.utils import ExtractorError
 
 class EmbedHostIE(InfoExtractor):
     IE_NAME = 'embedhost'
-    _VALID_URL = r'https?://(?P<host>[^/]+)/(?:e|d)/(?P<id>[a-z0-9]{8,})'
+    # Mixed case is normal in these ids; a lowercase-only class silently
+    # matched nothing on hosts that use both, which reads as 'unsupported'.
+    _VALID_URL = r'https?://(?P<host>[^/]+)/(?:e|d)/(?P<id>[A-Za-z0-9_-]{8,})'
     # Only claim a URL once the page proves it is this software; a bare
     # `/e/<id>` shape is far too common to take on sight.
     _WEBPAGE_TESTS = []
