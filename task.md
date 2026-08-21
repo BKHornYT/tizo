@@ -182,6 +182,30 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
       scan finds nothing, the embed is followed, the plugin extracts, one row
       is offered. 8.5s
 
+### KVS-platform sites ✅ supported
+> Off-the-shelf tube software behind a large number of sites, so worth solving
+> once at the platform level rather than per site.
+
+- [x] Diagnosed: the page carries `kt_player`, `license_code` and
+      `video_url: 'function/0/...'`, which is everything yt-dlp needs — it already
+      implements the whole thing in `GenericIE._extract_kvs`
+- [x] Cause found: yt-dlp looks for a `flashvars = {` assignment, and these
+      deployments declare the same config differently, so detection fails with
+      "Unable to extract flashvars" while the data is sitting right there
+- [x] A plugin hooking `_extract_from_webpage` did **not** work: generic spots
+      the KVS markers and raises before webpage extractors run, so the hook never
+      fires. Claiming the URL was rejected as too risky — a plugin taking
+      `/video/<id>` on every host turns pages generic handles into hard failures
+- [x] **Fixed by overriding generic's `_extract_kvs`.** When the standard
+      declaration is missing, the config object is located by walking outwards
+      from `license_code` to its enclosing braces and appended in the shape
+      yt-dlp expects; yt-dlp's own decoder does everything else. One method
+      changed, nothing else touched, no decoding reimplemented
+- [x] Verified on two reported sites: both give 2 raw formats → three curated
+      rows (Best available, 720p, 480p)
+- [ ] Worth reporting upstream: yt-dlp has the decoder and only the detection is
+      too narrow, which is a small fix that would help every KVS site
+
 ### Site support at scale — the plugin route
 > Full write-up in [docs/site-support.md](docs/site-support.md).
 

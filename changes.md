@@ -11,6 +11,40 @@ Newest first. One entry per change, using this format:
 
 ---
 
+## 2026-08-22 - v0.0.10: KVS-platform sites now work
+
+**What:** A second reported site turned out to run KVS, off-the-shelf tube-site
+software used by a large number of sites. Diagnosed fully; not fixed.
+
+**Why it fails:** the page carries `kt_player`, `license_code` and a
+`video_url: 'function/0/...'` - everything needed, and yt-dlp already implements
+the entire decode in `GenericIE._extract_kvs`. Detection is the only problem: it
+looks for a `flashvars = {` assignment and these deployments declare the same
+config another way, so it gives up with "Unable to extract flashvars" while the
+data is right there.
+
+**What was tried:** a plugin hooking `_extract_from_webpage`, which contributes to
+generic extraction without claiming URLs of its own - deliberately, because a
+plugin matching `/video/<id>` on any host would take over pages generic can
+already handle and turn a miss into a hard failure. It does not work: generic sees
+the KVS markers and raises before webpage extractors run, so the hook never fires.
+Removed rather than left in the tree as dead code.
+
+**Fixed by overriding generic's `_extract_kvs`.** A plugin that subclasses the
+built-in extractor replaces it, so detection can be widened without touching
+anything else: when the standard declaration is absent, the config object is
+located by walking outwards from `license_code` to its enclosing braces and
+appended in the shape yt-dlp expects. yt-dlp's own decoder then does the whole
+job - nothing about the obfuscation is reimplemented here.
+
+**Verified on two separately reported sites**, which turned out to run the same
+software: each yields 2 raw formats, shaping into three rows - Best available,
+720p and 480p. Metadata only; no downloads were made.
+
+**Worth an upstream report.** yt-dlp already has the decoder and only its
+detection is too narrow, so this is a small fix that would help every KVS site
+rather than living in our plugin forever.
+
 ## 2026-08-21 - v0.0.9: pasting the page URL is enough
 
 **What:** Embed-following now runs as part of the normal chain instead of being
