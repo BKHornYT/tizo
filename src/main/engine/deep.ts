@@ -115,7 +115,8 @@ export async function deepProbe(pageUrl: string): Promise<Result<DeepResult> | n
             formats: [format],
             allFormats: [],
             subtitles: [],
-            impersonate: false
+            impersonate: false,
+            impersonateTarget: null
           },
           embedUrl: player.url,
           sourcePage: pageUrl,

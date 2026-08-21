@@ -3,8 +3,9 @@
 **Goal:** someone reports a site that does not work, and it works soon after —
 without waiting for an app release, and without a maintenance treadmill.
 
-This document is the route to that. Nothing here is built yet; the mechanism it
-depends on has been verified.
+This document is the route to that. Every rung below is built and proven; what is
+still missing is delivering plugins through the registry, so today a new one
+means an app release.
 
 ## The ladder, cheapest first
 
@@ -17,7 +18,7 @@ jumping to the bottom rung.
 | 2 | Site profile: impersonation target, player client, rate limits | a registry entry | ✅ |
 | 3 | Page scan — a plain file on the page | nothing | ✅ |
 | 4 | Click-to-load player in a `data-*` attribute | nothing | ✅ |
-| 5 | **yt-dlp extractor plugin** — a small Python file | one file in the registry | ❌ |
+| 5 | **yt-dlp extractor plugin** — a small Python file | one file | ✅ ships with the app |
 | 6 | Run the player and watch the network | nothing | ✅ (experimental) |
 
 Rungs 3, 4 and 6 are generic: they cost nothing per site and already cover a
@@ -38,6 +39,26 @@ placed next to the managed `yt-dlp.exe` and picked up:
 This matters because the binary is a PyInstaller bundle, and it would have been
 reasonable to assume plugins were unavailable there. They are not.
 
+### Proven
+
+A plugin for an embed-host family was written and run against a page whose HTML
+contains no media source at all — the exact case where the page scan finds
+nothing and the browser sniffer is stopped by a bot challenge. It returned a
+playable URL. Run with `-J` only: the point was to prove extraction, not to fetch
+anything.
+
+The flow those hosts use, which the plugin encodes:
+
+1. the embed page defines a token in inline script
+2. the player asks a small endpoint for a base path, sending the embed page as
+   `Referer`
+3. it appends random characters, the token and a millisecond expiry
+4. the media comes from a CDN node, which refuses a request with no `Referer`
+
+None of that is visible to a scanner, and the page is guarded well enough that
+watching a real browser does not help either. Talking to the endpoint the player
+talks to sidesteps both problems.
+
 ### Layout
 
 ```
@@ -46,6 +67,17 @@ reasonable to assume plugins were unavailable there. They are not.
 
 `<binDir>` is the managed binary directory the app already owns, so plugins live
 beside the engine they extend and are removed when it is.
+
+Plugins that ship with the app live in `resources/plugins/`, are packed by
+electron-builder, and are copied into place on every launch by
+`src/main/engine/plugins.ts` — replaced wholesale, so one dropped from a release
+disappears from disk rather than lingering as a stale file nobody can reproduce.
+
+**A plugin behind a bot wall needs impersonation.** `--extractor-args
+generic:impersonate` speaks only to the generic extractor, so a named one keeps
+403ing; the probe retries with a real `--impersonate` target instead. That target
+is discovered rather than configured, because listing hosts in the registry would
+publish which sites had been reported.
 
 ### Why this rather than our own extractors
 

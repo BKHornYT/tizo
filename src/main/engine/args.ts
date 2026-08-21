@@ -23,6 +23,8 @@ export interface ArgContext {
   referer?: string | undefined
   /** Site is behind a bot wall; impersonate a browser's TLS fingerprint. */
   impersonate?: boolean | undefined
+  /** The specific target the probe needed, when the generic flag was not enough. */
+  impersonateTarget?: string | null | undefined
   /** Set by an audio row: extract to this container instead of keeping video. */
   extractAudio?: AudioFormat | undefined
   /** Subtitle languages for this job. Empty or absent means none. */
@@ -131,7 +133,11 @@ export function buildDownloadArgs(ctx: ArgContext): string[] {
 
   // A registry profile names a specific target; the probe's own finding is a
   // generic "this site needs it" and uses the generic extractor arg.
+  // Most specific first: a registry target, then whatever the probe proved works,
+  // then the generic flag. Anything else risks taking a different route to the
+  // one that just succeeded.
   if (profile?.impersonate) args.push('--impersonate', profile.impersonate)
+  else if (ctx.impersonateTarget) args.push('--impersonate', ctx.impersonateTarget)
   else if (ctx.impersonate) args.push('--extractor-args', 'generic:impersonate')
   if (profile?.concurrentFragments && profile.concurrentFragments > 1) {
     args.push('-N', String(profile.concurrentFragments))

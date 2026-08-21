@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { registerIpc } from './ipc'
 import { cancelAll } from './engine/download'
 import { runSniffChild, sniffChildTarget } from './engine/browser'
+import { installBundledPlugins } from './engine/plugins'
 
 const isDev = !app.isPackaged
 
@@ -105,6 +106,8 @@ if (sniffTarget) {
   })
 
   void app.whenReady().then(() => {
+    // Extra sites, not a startup dependency — deliberately not awaited.
+    void installBundledPlugins()
     registerIpc(() => mainWindow)
     mainWindow = createWindow()
 

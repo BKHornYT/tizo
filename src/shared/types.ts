@@ -127,6 +127,12 @@ export interface MediaInfo {
    * must use the same route, or a site we just got past will refuse us again.
    */
   impersonate: boolean
+  /**
+   * The `--impersonate` target that got the probe through, when a generic
+   * client was not enough. Carried so the download takes the identical route —
+   * a host that just let us past will refuse a differently-shaped client.
+   */
+  impersonateTarget: string | null
 }
 
 export type JobStatus = 'downloading' | 'processing' | 'done' | 'error' | 'cancelled'
@@ -283,6 +289,9 @@ export interface QueueItem {
   allFormats: FormatOption[]
   /** Selected format id; defaults to the best option that works right now. */
   formatId: string | null
+
+  /** Impersonation target the probe needed, replayed on the download. */
+  impersonateTarget: string | null
 
   /** Tracks this item offers. Empty when the site has none. */
   subtitles: SubtitleTrack[]

@@ -256,6 +256,15 @@ export function listAllFormats(raw: RawFormat[]): FormatOption[] {
  */
 export const IMPERSONATE_ARGS = ['--extractor-args', 'generic:impersonate']
 
+/**
+ * Impersonation targets tried, in order, once the generic flag has failed.
+ *
+ * One entry for now: chrome covers the walls seen so far, and every extra target
+ * costs a full failed probe before the next is tried. Add one only when a real
+ * site needs it.
+ */
+export const IMPERSONATE_TARGETS = ['chrome']
+
 /** True when a failure looks like a bot wall rather than a missing extractor. */
 export function looksBotBlocked(stderr: string): boolean {
   return /cloudflare|anti-bot|http error 403|generic:impersonate|just a moment/i.test(stderr)

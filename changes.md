@@ -11,6 +11,41 @@ Newest first. One entry per change, using this format:
 
 ---
 
+## 2026-08-21 — The plugin route works: a site with no source in its HTML
+**What:** Wrote a yt-dlp extractor plugin for an embed-host family, shipped it in
+`resources/plugins/`, and made the app install it into
+`<binDir>/yt-dlp-plugins/` on launch. Also taught the probe to apply site profiles
+and to retry a detected bot wall with a real `--impersonate` target.
+**Why:** The goal is that a reported site can be supported without an app rewrite.
+This is the rung that makes that true.
+**Files:** resources/plugins/…/doodfamily.py, src/main/engine/plugins.ts,
+src/main/engine/{probe,args,formats,download,scrape,deep}.ts,
+src/main/queue/index.ts, src/main/index.ts, src/shared/types.ts,
+electron-builder.yml, components.json, docs/site-support.md, CLAUDE.md, task.md
+
+**Verified against the case that beat everything else.** A page whose HTML holds
+no media source at all: the page scan found nothing (correctly), and the browser
+sniffer loaded the player, loaded the challenge widget and watched it never
+request media. The plugin talks to the endpoint the player talks to and returned a
+playable URL. Run with `-J` — the point was to prove extraction, not to fetch
+anything.
+
+**The blocker was not the plugin.** It loaded and ran immediately, then 403'd on
+the embed page. `--extractor-args generic:impersonate` addresses the *generic*
+extractor, so a named extractor never sees it — the probe now retries with
+`--impersonate <target>`, which applies to the requests themselves. Also fixed:
+the probe ignored site profiles entirely, which was invisible while every profile
+was tuning but fatal for a plugin behind a wall.
+
+**Impersonation targets are discovered, not listed.** Host entries were briefly
+added to `siteProfiles` and then removed: naming a host in a public registry
+publishes which sites were reported, and a discovered target also covers the
+mirror domains these families rotate through, which a list never would.
+
+**Plugins are executable code**, so they install only from the app's own packed
+resources. Carrying them in the registry needs the same sha256 verification ffmpeg
+gets, and that is not built yet — until it is, a new plugin means an app release.
+
 ## 2026-08-21 — Off-screen rendering, real clicks, and why one host still refuses
 **What:** The sniff window now renders off-screen (`x: -32000`) and is shown with
 `showInactive()` rather than being created with `show: false`, because a window

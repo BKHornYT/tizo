@@ -208,6 +208,7 @@ export async function scrapePage(pageUrl: string): Promise<ScrapeResult | null> 
       // A scan finds a media file, not a caption track — there is no metadata
       // here to enumerate subtitles from.
       subtitles: [],
+      impersonateTarget: null,
       formats: [
         {
           id: 'b',

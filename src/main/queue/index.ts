@@ -69,6 +69,7 @@ function blank(url: string): QueueItem {
     formatId: null,
     subtitles: [],
     subLangs: null,
+    impersonateTarget: null,
     percent: null,
     speed: null,
     eta: null,
@@ -190,6 +191,7 @@ async function runProbe(id: string, hasFfmpeg: boolean): Promise<void> {
             url: deep.value.embedUrl,
             sourcePage: deep.value.sourcePage,
             impersonate: deep.value.info.impersonate,
+            impersonateTarget: deep.value.info.impersonateTarget,
             directUrl: deep.value.directUrl ?? null,
             error: null
           })
@@ -228,7 +230,8 @@ async function runProbe(id: string, hasFfmpeg: boolean): Promise<void> {
     subtitles: info.subtitles,
     formatId: chosen?.id ?? null,
     url: info.webpageUrl,
-    impersonate: info.impersonate
+    impersonate: info.impersonate,
+    impersonateTarget: info.impersonateTarget
   })
 }
 
@@ -405,6 +408,7 @@ async function pump(): Promise<void> {
         format: format?.selector ?? item.formatId,
         needsFfmpeg: format?.needsFfmpeg ?? false,
         impersonate: item.impersonate,
+        impersonateTarget: item.impersonateTarget,
         ...(format?.extractAudio ? { extractAudio: format.extractAudio } : {}),
         // `null` means the user never chose for this item, so the global default
         // applies; `[]` is a deliberate "none for this one" and must survive.

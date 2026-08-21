@@ -114,6 +114,8 @@ src/main/engine/embeds.ts  finds players stashed escaped in data-* attributes
 src/main/engine/browser.ts EXPERIMENTAL: spawns a child that watches what a player fetches
 src/main/engine/media.ts   pure: is an observed request downloadable media?
 src/main/engine/deep.ts    EXPERIMENTAL: follow a page's embedded player
+src/main/engine/plugins.ts installs the bundled yt-dlp extractor plugins
+resources/plugins/         yt-dlp extractor plugins, packed and installed on launch
 src/main/engine/           binaries, probe (incl. playlists), download, error classes
 src/main/queue/            item state, probing, concurrency pump, playlist expansion
 src/main/components/       fetch (resumable) + verify + unzip — powers setup AND addons
@@ -171,6 +173,18 @@ supported, cheapest route first.
 ## Key Decisions
 
 Newest first.
+
+- **2026-08-21 — Extractor plugins ship with the app and install on launch.**
+  `resources/plugins/` is packed by electron-builder and copied into
+  `<binDir>/yt-dlp-plugins/` on every start, wholesale, so a plugin dropped from a
+  release disappears from disk too. Proven end to end: a plugin for an embed-host
+  family extracted a playable URL from a page that has no source in its HTML at
+  all, where both the page scan and the browser sniffer had failed.
+- **2026-08-21 — Impersonation targets are discovered, not listed.** The probe
+  now retries a detected bot wall with `--impersonate <target>` after the generic
+  flag fails, rather than naming hosts in `siteProfiles`. Two reasons: listing a
+  host publishes which sites were reported, and a discovered target covers mirror
+  domains that a list never catches.
 
 - **2026-08-21 — Site support scales through yt-dlp extractor plugins, not our
   own extractors.** Verified that the bundled `yt-dlp.exe` loads plugins from
@@ -328,6 +342,19 @@ Newest first.
   stack blocks adding macOS/Linux later.
 
 ## Gotchas
+
+- **`--extractor-args generic:impersonate` only reaches the *generic* extractor.**
+  A named extractor — including one from a plugin — never sees it and keeps
+  returning 403 behind a bot wall. `--impersonate <target>` applies to the
+  requests themselves and is what gets those through. The probe tries the generic
+  flag first and then a real target, because the second is slower.
+- **The probe applies site profiles too, not just the download.** It did not
+  originally, which was invisible while every profile was tuning — but a host
+  served by a plugin can sit behind a wall, and the probe would fail before the
+  plugin ever ran.
+- **A plugin is executable code on a user's machine.** Install it only from the
+  app's own resources, or from the registry after a sha256 check exactly as ffmpeg
+  is handled. Never from a URL supplied by a user, a page or an issue report.
 
 - **A Chromium CHECK failure cannot be caught.** It aborts the process, so no
   stack, no rejection, no `catch`. A silent exit with `Check failed:` lines in the

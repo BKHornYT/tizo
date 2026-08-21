@@ -13,7 +13,12 @@ files:
 
 # Slim installer by design: ffmpeg, yt-dlp and the site profiles are NOT packed
 # here. They arrive in the first-run Essentials download. See docs/plan.md.
-extraResources: []
+# The one exception: yt-dlp extractor plugins are a few KB of text, and they are
+# what make a site supported at all. Packing them keeps that working offline and
+# on first run, before any registry fetch has happened.
+extraResources:
+  - from: resources/plugins
+    to: plugins
 
 win:
   icon: build/icon.ico

@@ -179,8 +179,20 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
 - [x] **Verified: the bundled `yt-dlp.exe` loads extractor plugins**, despite
       being a PyInstaller bundle. A throwaway extractor next to the managed binary
       was picked up and used
-- [ ] Registry carries plugins; component pipeline fetches and **sha256-verifies**
-      them exactly like ffmpeg — a plugin is executable code, not config
+- [x] **Proven end to end.** A plugin for an embed-host family extracted a
+      playable URL from a page whose HTML contains no source at all — the case
+      that defeated both the page scan and the browser sniffer. Metadata only, no
+      download, to confirm extraction rather than fetch anything
+- [x] Plugins ship in `resources/plugins/`, packed by electron-builder and copied
+      into `<binDir>/yt-dlp-plugins/` on launch, replaced wholesale each time
+- [x] Probe now applies site profiles, and retries a bot wall with a real
+      `--impersonate` target — `generic:impersonate` never reaches a named
+      extractor, so a plugin behind a wall could not have worked without it
+- [x] No host names added to the registry: the impersonation target is discovered
+      generically, so nothing publishes which sites were reported
+- [ ] Registry carries plugins too; component pipeline fetches and
+      **sha256-verifies** them exactly like ffmpeg — a plugin is executable code,
+      not config. Until then plugins only arrive with an app release
 - [ ] Never fetch a plugin from a user-supplied URL, an issue, or a page
 - [ ] Options shows installed plugins alongside components, and can remove them
 - [ ] A route from a GitHub issue to a shipped plugin without an app release

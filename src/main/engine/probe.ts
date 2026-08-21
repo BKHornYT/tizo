@@ -1,9 +1,12 @@
 import { execFile } from 'node:child_process'
 import { resolveYtdlp } from './binaries'
 import { binaryMissing, classifyError } from './errors'
+import { profileFor } from './args'
+import { loadManifest } from '../components/manifest'
 import type { MediaInfo, PlaylistInfo, Result, SubtitleTrack } from '../../shared/types'
 import {
   IMPERSONATE_ARGS,
+  IMPERSONATE_TARGETS,
   listAllFormats,
   looksBotBlocked,
   shapeFormats,
@@ -26,7 +29,10 @@ async function runYtdlp(
   exe: string,
   args: string[],
   timeout: number
-): Promise<{ ok: true; stdout: string; impersonated: boolean } | { ok: false; stderr: string }> {
+): Promise<
+  | { ok: true; stdout: string; impersonated: boolean; target: string | null }
+  | { ok: false; stderr: string }
+> {
   const attempt = (extra: string[]): Promise<{ ok: boolean; stdout: string; stderr: string }> =>
     new Promise((resolve) => {
       execFile(
@@ -38,12 +44,33 @@ async function runYtdlp(
     })
 
   const plain = await attempt([])
-  if (plain.ok) return { ok: true, stdout: plain.stdout, impersonated: false }
+  if (plain.ok) return { ok: true, stdout: plain.stdout, impersonated: false, target: null }
 
   if (!looksBotBlocked(plain.stderr)) return { ok: false, stderr: plain.stderr }
 
   const retried = await attempt(IMPERSONATE_ARGS)
-  if (retried.ok) return { ok: true, stdout: retried.stdout, impersonated: true }
+  if (retried.ok) {
+    return { ok: true, stdout: retried.stdout, impersonated: true, target: null }
+  }
+
+  /*
+   * Second retry, with a real impersonation target.
+   *
+   * `--extractor-args generic:impersonate` speaks to the *generic* extractor
+   * only, so a named extractor — including one from a plugin — never sees it and
+   * 403s regardless. `--impersonate` applies to the requests themselves and gets
+   * those through. Kept as a retry, and last: it is the slowest route, and this
+   * only runs once a bot wall has already been detected.
+   *
+   * Discovered generically rather than by listing hosts in the registry, which
+   * would publish which sites had been reported.
+   */
+  for (const target of IMPERSONATE_TARGETS) {
+    const attempted = await attempt(['--impersonate', target])
+    if (attempted.ok) {
+      return { ok: true, stdout: attempted.stdout, impersonated: true, target }
+    }
+  }
 
   // Report the original failure: the retry's stderr is usually the same wall,
   // and the first message is the one that describes what actually went wrong.
@@ -167,11 +194,38 @@ export async function inspectPlaylist(url: string): Promise<Result<PlaylistInfo 
   }
 }
 
+/**
+ * Impersonation target for this host, from the registry.
+ *
+ * The probe used to ignore site profiles entirely — they were applied only at
+ * download time. That held while every profile was tuning, but a host served by
+ * an extractor plugin can sit behind a Cloudflare wall, and the probe would 403
+ * before the plugin ever ran. The generic bot-wall retry does not help there:
+ * `--extractor-args generic:impersonate` speaks to the *generic* extractor, and
+ * a named one never sees it.
+ */
+async function impersonationFor(url: string): Promise<string | null> {
+  try {
+    const { manifest } = await loadManifest({ refresh: false })
+    return profileFor(url, manifest.siteProfiles)?.impersonate ?? null
+  } catch {
+    return null
+  }
+}
+
 export async function probe(url: string): Promise<Result<MediaInfo>> {
   const bin = await resolveYtdlp()
   if (!bin.found || !bin.path) return { ok: false, error: binaryMissing('yt-dlp') }
 
-  const args = ['--ignore-config', '-J', '--no-warnings', '--no-playlist', url]
+  const target = await impersonationFor(url)
+  const args = [
+    '--ignore-config',
+    '-J',
+    '--no-warnings',
+    '--no-playlist',
+    ...(target ? ['--impersonate', target] : []),
+    url
+  ]
 
   const run = await runYtdlp(bin.path, args, 90_000)
   if (!run.ok) return { ok: false, error: classifyError(run.stderr, url) }
@@ -193,7 +247,8 @@ export async function probe(url: string): Promise<Result<MediaInfo>> {
         subtitles: shapeSubtitles(info),
         // Carried through so the download uses the same route that made the
         // probe work — otherwise a site we just got past would refuse us again.
-        impersonate: run.impersonated
+        impersonate: run.impersonated,
+        impersonateTarget: run.target
       }
     }
   } catch {

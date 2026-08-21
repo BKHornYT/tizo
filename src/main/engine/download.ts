@@ -31,6 +31,8 @@ export interface DownloadRequest {
   directUrl?: string
   /** The probe only got through with browser impersonation; do the same here. */
   impersonate?: boolean
+  /** The exact target that worked, when the generic flag was not enough. */
+  impersonateTarget?: string | null
   /** Set after the user has answered a file-exists prompt. */
   resolveConflict?: 'overwrite' | 'rename'
   /** From the chosen row: extract audio into this container instead of video. */
@@ -185,6 +187,7 @@ export async function startDownload(
     ffmpegDir,
     referer,
     impersonate: req.impersonate ?? false,
+    impersonateTarget: req.impersonateTarget ?? null,
     extractAudio: req.extractAudio,
     subLangs: req.subLangs ?? [],
     headers: req.headers
