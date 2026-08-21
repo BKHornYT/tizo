@@ -49,7 +49,7 @@
     }
   ],
   "siteProfiles": {
-    "_comment": "Per-site tuning applied to yt-dlp invocations. Not extractors \u2014 yt-dlp already supports these sites. This exists so a tuning fix ships without an app release. Hosts that only need impersonation do NOT belong here: the probe now discovers that generically, and listing a host would publish which sites were reported.",
+    "_comment": "Per-site tuning applied to yt-dlp invocations. Not extractors - yt-dlp already supports these sites. Add an entry only for tuning that cannot be discovered at runtime: a host needing nothing but impersonation does NOT belong here, because the probe now finds that itself on a bot wall, and a hostname in a public file says which sites were asked for.",
     "youtube.com": {
       "impersonate": null,
       "concurrentFragments": 4
@@ -69,9 +69,6 @@
     },
     "facebook.com": {
       "needsCookies": true
-    },
-    "pornhub.com": {
-      "impersonate": "chrome"
     }
   },
   "domains": {
