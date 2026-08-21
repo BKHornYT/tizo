@@ -73,7 +73,7 @@ run against a YouTube page and captured 5 media URLs along with the `Referer`,
 `Origin` and `User-Agent` the player actually sent.
 
 **Then the whole chain was run against that reported page and it crashed.**
-Player discovery succeeded — "Player 1 → playmogo.com, Player 2 → bysekoze.com" —
+Player discovery succeeded — both players found and labelled —
 and the hidden window then produced repeated fatal Chromium CHECK failures
 (`site_info.cc … origin.GetTupleOrPrecursorTupleIfOpaque().IsValid()`), aborting
 the process before the probe returned. No JS exception was raised because a CHECK

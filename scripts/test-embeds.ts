@@ -34,11 +34,11 @@ ok(
 const clickToLoad = `
 <div class="server-holder tabs-menu">
   <a class="js-server-embed server-link"
-     data-embed="&lt;iframe width=&#34;882&#34; src=&#34;https://playerone.example/e/ib6bga957lt7&#34;&gt;&lt;/iframe&gt;">
+     data-embed="&lt;iframe width=&#34;882&#34; src=&#34;https://playerone.example/e/aaaa1111bbbb&#34;&gt;&lt;/iframe&gt;">
      <svg class="icon-play"><use xlink:href="#icon-play"></use></svg> <span>Player 1</span>
   </a>
   <a class="js-server-embed server-link"
-     data-embed="&lt;iframe src=&#34;https://playertwo.example/e/i67mdk7g8q17/some-title&#34;&gt;&lt;/iframe&gt;">
+     data-embed="&lt;iframe src=&#34;https://playertwo.example/e/cccc2222dddd/some-title&#34;&gt;&lt;/iframe&gt;">
      <svg class="icon-play"><use xlink:href="#icon-play"></use></svg> <span>Player 2</span>
   </a>
 </div>
@@ -48,8 +48,8 @@ const found = findEmbeds(clickToLoad, PAGE)
 ok('both players are found', found.length === 2, String(found.length))
 ok(
   'document order is kept, so the site’s own first choice stays first',
-  found[0]?.url === 'https://playerone.example/e/ib6bga957lt7' &&
-    found[1]?.url === 'https://playertwo.example/e/i67mdk7g8q17/some-title',
+  found[0]?.url === 'https://playerone.example/e/aaaa1111bbbb' &&
+    found[1]?.url === 'https://playertwo.example/e/cccc2222dddd/some-title',
   found.map((f) => f.url).join(' , ')
 )
 // The text sits after an <svg>, so tags are stripped rather than matched around.
