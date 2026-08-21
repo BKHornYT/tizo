@@ -49,6 +49,10 @@ file — and a week later gets a bugfix without doing anything.
 - **Known broken / not started:** no clipboard *watcher* or history or tray
   (Phase 6), no playlist monitoring (6.5), no optional addon gates or sign-in
   window (7 — reshaped by [docs/browser-engine.md](docs/browser-engine.md)).
+- **Site support scales without a release:** extractor plugins ship with the
+  app and can also arrive from the registry, sha256-verified, listed in
+  Options. Walled pages are readable — a plain fetch falls back to an
+  impersonating one. See [docs/site-support.md](docs/site-support.md).
 - **Site chain:** pasting a page URL runs probe, then page scan, then the
   page's own embedded player. Only the browser rung is behind Settings >
   Experimental. Verified end to end on a site that shows Player 1 / Player 2

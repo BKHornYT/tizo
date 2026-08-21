@@ -326,9 +326,15 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
 
 _Nothing blocked._
 
-## Where things stand (2026-08-20)
+## Where things stand (2026-08-22)
 
-Released through **v0.0.4**. Phases 0–4 and 8–9 are done; Phase 5 is next.
+Released through **v0.0.11**. Phases 0–5 and 8–9 are done; Phase 6 is next.
+
+Site support now has five rungs and scales without an app release: built-in
+extractors, site profiles, the page scan, embed-following, and extractor plugins
+delivered from the registry with a sha256 check. Walled pages are readable, and
+the experimental browser rung runs in a child process so a hostile page cannot
+take the app down. See [docs/site-support.md](docs/site-support.md).
 
 The app works end to end: terms → Essentials download → paste a link → queue →
 download, with auto-update proven against a real release. Not yet built: audio

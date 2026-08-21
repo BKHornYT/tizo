@@ -11,6 +11,22 @@ Newest first. One entry per change, using this format:
 
 ---
 
+## 2026-08-22 - v0.0.11
+
+**What:** Ships everything since 0.0.10: pages that refuse a plain request are now
+read through an impersonating client, extractor plugins can arrive from the
+registry sha256-verified, and Options lists what is installed with its origin.
+
+**Why:** Together these change site support from "Claude investigates each one and
+we cut a release" into something that scales - a verified file, no release, and
+walled aggregators readable at all.
+
+**Files:** package.json, package-lock.json
+
+**Two gaps stated rather than papered over:** no plugin has yet travelled the
+registry path with a real file, and `TIZO_MANIFEST_URL` still defaults to the
+public repo, so anything the manifest names remains public.
+
 ## 2026-08-22 - Plugins from the registry, verified, and visible
 
 **What:** `components.json` gained a `plugins` array. Each entry is validated
