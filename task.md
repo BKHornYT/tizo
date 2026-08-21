@@ -206,6 +206,22 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
 - [ ] Worth reporting upstream: yt-dlp has the decoder and only the detection is
       too narrow, which is a small fix that would help every KVS site
 
+### Two reported sites still unsupported — diagnosed
+- [ ] **Walled aggregator + unknown player.** The page 403s a plain request and
+      only opens to an impersonating client; behind it is a normal `<iframe>` to
+      a separate player host. That host's page carries none of the usual markers
+      — no kt_player, no jwplayer, no videojs, no sources — so it builds its media
+      URL at runtime. That is the browser-sniffer case, i.e. rung 6
+- [ ] **BLOCKER for it: `fetchHtml` cannot read a walled page.** The embed finder
+      uses plain `fetch`, which takes the 403, while yt-dlp gets through with
+      `--impersonate`. So the app cannot even see the iframe it would need to
+      follow. Fixing this unlocks every walled aggregator, not just this one, and
+      is worth more than either site
+- [ ] **Video.js site with in-page sources.** 1.2 MB page carrying `videojs`,
+      `file:`, `source:` and an `.mp4`, which the generic extractor does not pick
+      up. Likely the most tractable of the two — worth reading the config shape
+      before writing anything
+
 ### Site support at scale — the plugin route
 > Full write-up in [docs/site-support.md](docs/site-support.md).
 
