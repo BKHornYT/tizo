@@ -11,6 +11,39 @@ Newest first. One entry per change, using this format:
 
 ---
 
+## 2026-08-22 - Two more reported sites: one already covered, one blocked
+
+**What:** Diagnosed two further reported sites. One needs no work at all; the
+other is blocked on a gap that matters more than the site does.
+
+**The one that needs nothing.** My first read of it was wrong and worth recording
+as such: I reported it as "a Video.js config with in-page sources" on the strength
+of `file:`, `source:` and `videojs` appearing in the page. They were CSS icon
+class names (`.el-icon-file`, `.el-icon-opensource`) and an HTML comment naming a
+WordPress plugin. There is no player config - the page carries a plain download
+link. `findCandidates` already returns it, so the existing page-scan rung should
+cover that site unchanged. Still to confirm in the running app, where `verify()`
+HEAD-checks candidates and could answer differently from a GET.
+
+**The one that is blocked.** Its aggregator page 403s a plain request and only
+opens to an impersonating client; behind it sits a normal iframe to a player host
+whose page carries none of the usual markers, so it builds its URL at runtime.
+Two separate problems, and the first is the general one: **`fetchHtml` uses plain
+`fetch`, so the embed finder cannot read a Cloudflare-walled page** while yt-dlp
+gets through by impersonating. The app never sees an iframe it would happily
+follow. That blocks every walled aggregator, not one site.
+
+**Also fixed:** the embed plugin matched ids as `[a-z0-9]{8,}`, so a host using
+mixed-case ids never matched and its pages read as "Unsupported URL" - a
+too-narrow character class presenting as a missing feature, which is now the third
+time that shape of bug has appeared here.
+
+**Process note:** five reported sites have produced three distinct player
+families. Each needs its own diagnosis, and every fix currently requires an app
+release. That is the treadmill the addon design was meant to avoid, and it argues
+for spending the next effort on delivering plugins through the registry rather
+than on a sixth site.
+
 ## 2026-08-22 - v0.0.10: KVS-platform sites now work
 
 **What:** A second reported site turned out to run KVS, off-the-shelf tube-site

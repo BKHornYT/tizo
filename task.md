@@ -217,10 +217,17 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
       `--impersonate`. So the app cannot even see the iframe it would need to
       follow. Fixing this unlocks every walled aggregator, not just this one, and
       is worth more than either site
-- [ ] **Video.js site with in-page sources.** 1.2 MB page carrying `videojs`,
-      `file:`, `source:` and an `.mp4`, which the generic extractor does not pick
-      up. Likely the most tractable of the two — worth reading the config shape
-      before writing anything
+- [x] **The other site needs nothing.** First read of it was wrong: the `file:`
+      and `source:` hits were CSS icon class names (`.el-icon-file`,
+      `.el-icon-opensource`) and the lone `videojs` was an HTML comment naming a
+      WordPress plugin. There is no player config — the page carries a plain
+      download link with an `.mp4` href.
+- [x] `findCandidates` already finds it: one candidate, `/download/...`, ext mp4.
+      So the existing page-scan rung should handle that site as-is
+- [ ] Confirm it in the running app. The one thing that could still stop it is
+      `verify()`, which HEAD-checks candidates and rejects sub-100 KB responses
+      and wrong content types — a `/download/` endpoint may answer a HEAD
+      differently from a GET
 
 ### Site support at scale — the plugin route
 > Full write-up in [docs/site-support.md](docs/site-support.md).
