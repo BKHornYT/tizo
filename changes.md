@@ -11,6 +11,48 @@ Newest first. One entry per change, using this format:
 
 ---
 
+## 2026-08-21 — Verified: the bundled yt-dlp loads extractor plugins
+**What:** Confirmed that the managed `yt-dlp.exe` picks up extractor plugins from
+`<binDir>/yt-dlp-plugins/<pkg>/yt_dlp_plugins/extractor/`, and wrote
+[docs/site-support.md](docs/site-support.md) — the ladder a reported site should
+be answered by, cheapest rung first, with the plugin route as the rung that turns
+"we cannot do that site" into "that takes an afternoon".
+**Why:** The goal is that anyone can suggest a site and it gets added. Writing our
+own extractors per site is the treadmill the addon design was meant to avoid;
+plugins reuse yt-dlp's entire framework instead.
+**Files:** docs/site-support.md, CLAUDE.md, task.md
+
+**Worth verifying rather than assuming:** the binary is a PyInstaller bundle, so
+it would have been reasonable to conclude plugins were unavailable. A throwaway
+extractor was loaded and used — `[debug] Extractor Plugins: TizoProbeIE` — then
+removed from the real data directory.
+
+**Everything downstream keeps working.** A plugin returns the same shape as a
+built-in extractor, so the format picker, queue, progress, resume, cancel and the
+twelve error codes need no changes at all.
+
+**The part that must not be got wrong:** a plugin is executable code running on a
+user's machine. It has to be served from our own registry over https and
+sha256-verified before being written to disk, exactly like ffmpeg, and never
+fetched from a URL supplied by a user, an issue or a page. Treating it as "just
+config" is how this becomes a way to run arbitrary code on every install.
+
+## 2026-08-21 — Allow bot-challenge frames through the frame block
+**What:** The third-party sub-frame block that stopped the crash also blocked
+`challenges.cloudflare.com`, so a challenge could never load and therefore could
+never pass. Challenge frames are now allowed through while ad frames stay blocked.
+**Why:** A guarded player was waiting on a gate that had been prevented from
+opening.
+**Files:** src/main/engine/browser.ts
+
+**It did not fix the guarded host** — still zero media found, still zero aborts —
+so the challenge was not what was stopping that player. Kept regardless: blocking
+a challenge frame is wrong on its own terms and costs nothing to allow.
+
+**Next suspect is `kick()`**, which only calls `play()` and clicks common
+play-button selectors. That host responds to neither, so a synthesized input
+event is the next thing to try.
+
 ## 2026-08-21 — Contain the experimental browser in a child process
 **What:** The hidden window moved out of the main process. `sniffMedia` now
 spawns a child copy of the app with `--tizo-sniff-url=`, which loads the page,

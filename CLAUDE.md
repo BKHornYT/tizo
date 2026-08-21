@@ -154,6 +154,7 @@ docs/plan.md               phases, architecture, component schema, test matrix
 docs/features.md           feature set vs. the reference app — taken, improved, skipped
 docs/releasing.md          how to cut a release; what every release must contain
 docs/browser-engine.md     proposal: embedded Chromium for login, discovery, capture
+docs/site-support.md       how a reported site gets supported; the plugin route
 .github/workflows/release.yml  builds and publishes all targets on a v* tag
 ```
 
@@ -163,11 +164,28 @@ portable-mode design, and the phase breakdown. See
 [docs/features.md](docs/features.md) for the feature set and where we
 deliberately differ from the reference app. See
 [docs/browser-engine.md](docs/browser-engine.md) for the embedded-browser
-proposal that reshapes Phase 7.
+proposal that reshapes Phase 7. See
+[docs/site-support.md](docs/site-support.md) for how a reported site gets
+supported, cheapest route first.
 
 ## Key Decisions
 
 Newest first.
+
+- **2026-08-21 — Site support scales through yt-dlp extractor plugins, not our
+  own extractors.** Verified that the bundled `yt-dlp.exe` loads plugins from
+  `<binDir>/yt-dlp-plugins/<pkg>/yt_dlp_plugins/extractor/` even though it is a
+  PyInstaller bundle. Adding a site becomes one small Python file shipped through
+  the registry — no app release — and everything downstream (format picker, queue,
+  progress, resume, error codes) keeps working because a plugin produces the same
+  shape as a built-in extractor. *The catch:* a plugin is executable code on a
+  user's machine, so it must be sha256-verified from our own registry exactly like
+  ffmpeg, and never fetched from a user-supplied URL. See
+  [docs/site-support.md](docs/site-support.md).
+- **2026-08-21 — Reported sites are never named in the repo.** A changelog line
+  named two embed hosts and the test fixtures carried a real page's video hashes.
+  Those are traceable identifiers for whoever reported the site. Describe reported
+  sites by their shape instead; this has already had to be cleaned up once.
 
 - **2026-08-21 — The experimental browser runs in a child process, not in main.**
   Rendering a real aggregator page aborted the process with repeated

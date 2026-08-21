@@ -152,6 +152,27 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
       problem — decide separately whether it is worth solving
 - [ ] Still unproven: the full queue path (probe → scan → embed → sniff →
       download) as one run inside the running app
+- [x] Tried allowing bot-challenge frames through the third-party frame block
+      (the block that stopped the crash also stopped the challenge loading, and a
+      challenge that cannot load can never pass). **Did not help** — the guarded
+      host still returns nothing with zero aborts, so something other than the
+      challenge is stopping that player. Kept anyway: it is correct in principle
+      and costs nothing
+- [ ] `kick()` only calls `play()` and clicks common play-button selectors. The
+      guarded host responds to neither, so the next thing to try is a real
+      synthesized input event rather than a scripted click
+
+### Site support at scale — the plugin route
+> Full write-up in [docs/site-support.md](docs/site-support.md).
+
+- [x] **Verified: the bundled `yt-dlp.exe` loads extractor plugins**, despite
+      being a PyInstaller bundle. A throwaway extractor next to the managed binary
+      was picked up and used
+- [ ] Registry carries plugins; component pipeline fetches and **sha256-verifies**
+      them exactly like ffmpeg — a plugin is executable code, not config
+- [ ] Never fetch a plugin from a user-supplied URL, an issue, or a page
+- [ ] Options shows installed plugins alongside components, and can remove them
+- [ ] A route from a GitHub issue to a shipped plugin without an app release
 - [ ] Ranking is crude: manifest over file, then first seen. No bitrate/duration
       signal, so a preroll ad could outrank the feature on some sites
 - [ ] No UI for choosing between Player 1 and Player 2 — the first that works wins

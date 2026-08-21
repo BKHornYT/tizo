@@ -40,6 +40,16 @@ function score(media: SniffedMedia): number {
  */
 const REPLAY = new Set(['referer', 'origin', 'user-agent', 'cookie', 'authorization'])
 
+/**
+ * Bot-challenge frames, allowed through the third-party frame block.
+ *
+ * These are third-party by definition, so the block that stopped the crash also
+ * stopped the challenge from ever loading — and a challenge that cannot load can
+ * never pass, leaving the player waiting for a gate that will not open. Letting
+ * them through is what makes a guarded page reachable at all.
+ */
+const CHALLENGE_FRAME = /(^|\.)(challenges\.cloudflare\.com|hcaptcha\.com|recaptcha\.net)$/i
+
 export interface SniffOptions {
   /** Sent as the referer for the top-level load. Many embeds require it. */
   referer?: string | undefined
@@ -122,7 +132,7 @@ export async function sniffInProcess(
     try {
       const host = new URL(details.url).hostname.replace(/^www\./, '')
       const sameSite = host === pageHost || host.endsWith(`.${pageHost}`)
-      return callback({ cancel: !sameSite })
+      return callback({ cancel: !sameSite && !CHALLENGE_FRAME.test(host) })
     } catch {
       return callback({ cancel: true })
     }
