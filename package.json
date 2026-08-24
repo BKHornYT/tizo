@@ -1,8 +1,8 @@
 {
   "name": "tizo",
   "productName": "Video Downloader Tizo",
-  "version": "0.0.11",
-  "description": "Universal video downloader for Windows",
+  "version": "0.0.12",
+  "description": "Universal video downloader for Windows and Linux",
   "author": "BKHornYT",
   "license": "MIT",
   "main": "./out/main/index.js",
@@ -14,13 +14,15 @@
     "dist": "npm run build && electron-builder --win",
     "dist:dir": "npm run build && electron-builder --win --dir",
     "test:fetcher": "node --experimental-strip-types scripts/test-fetcher.ts",
-    "test:essentials": "node --experimental-strip-types scripts/test-essentials.ts",
+    "test:essentials": "node --experimental-strip-types --import ./scripts/electron-stub-register.mjs scripts/test-essentials.ts",
     "test:args": "node --experimental-strip-types scripts/test-args.ts",
-    "test": "npm run typecheck && npm run test:args && npm run test:formats && npm run test:embeds && npm run test:stats",
+    "test": "npm run typecheck && npm run test:args && npm run test:formats && npm run test:embeds && npm run test:manifest && npm run test:stats",
     "icon": "node scripts/build-icon.mjs",
     "test:formats": "node --experimental-strip-types scripts/test-formats.ts",
     "test:embeds": "node --experimental-strip-types scripts/test-embeds.ts",
-    "test:stats": "node --experimental-strip-types --import ./scripts/electron-stub-register.mjs scripts/test-stats.ts"
+    "test:stats": "node --experimental-strip-types --import ./scripts/electron-stub-register.mjs scripts/test-stats.ts",
+    "dist:linux": "npm run build && electron-builder --linux",
+    "test:manifest": "node --experimental-strip-types --import ./scripts/electron-stub-register.mjs scripts/test-manifest.ts"
   },
   "dependencies": {
     "electron-updater": "6.8.9",

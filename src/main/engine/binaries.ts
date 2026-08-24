@@ -8,10 +8,16 @@ import type { BinaryStatus, EngineStatus } from '../../shared/types'
 
 const execFileAsync = promisify(execFile)
 
-// Bare names must carry .exe: Node's spawn does not apply PATHEXT on Windows,
-// so 'yt-dlp' would simply not resolve even with yt-dlp.exe on PATH.
-const YTDLP_EXE = 'yt-dlp.exe'
-const FFMPEG_EXE = 'ffmpeg.exe'
+// On Windows the bare names must carry .exe: Node's spawn does not apply
+// PATHEXT, so 'yt-dlp' would not resolve even with yt-dlp.exe on PATH.
+// Everywhere else the binaries are extensionless.
+//
+// These names are a contract with the component registry: whatever a spec's
+// `binaries` array puts on disk must match what is resolved here, or setup
+// installs a working engine and the app then reports it missing.
+const WINDOWS = process.platform === 'win32'
+const YTDLP_BIN = WINDOWS ? 'yt-dlp.exe' : 'yt-dlp'
+const FFMPEG_BIN = WINDOWS ? 'ffmpeg.exe' : 'ffmpeg'
 
 async function readVersion(exe: string, args: string[]): Promise<string | null> {
   try {
@@ -52,11 +58,11 @@ async function resolve(
 }
 
 export function resolveYtdlp(): Promise<BinaryStatus> {
-  return resolve(YTDLP_EXE, YTDLP_EXE, ['--version'], (raw) => raw)
+  return resolve(YTDLP_BIN, YTDLP_BIN, ['--version'], (raw) => raw)
 }
 
 export function resolveFfmpeg(): Promise<BinaryStatus> {
-  return resolve(FFMPEG_EXE, FFMPEG_EXE, ['-version'], (raw) => {
+  return resolve(FFMPEG_BIN, FFMPEG_BIN, ['-version'], (raw) => {
     // "ffmpeg version 9.0-full_build-www.gyan.dev Copyright ..." -> "9.0-full_build..."
     const m = /ffmpeg version (\S+)/i.exec(raw)
     return m?.[1] ?? raw

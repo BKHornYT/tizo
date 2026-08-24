@@ -176,6 +176,12 @@ export interface SetupPlan {
   essentialsVersion: number
   completedAt: string | null
   components: ComponentSummary[]
+  /**
+   * Essential components the registry publishes no build of for this platform.
+   * Non-empty means setup cannot proceed at all — distinct from "not downloaded
+   * yet", which the user can act on.
+   */
+  unavailable: string[]
   /** Bytes still to download. */
   totalBytes: number
 }

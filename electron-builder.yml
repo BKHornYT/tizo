@@ -47,6 +47,27 @@ portable:
   artifactName: ${name}-${version}-portable.${ext}
   requestExecutionLevel: user
 
+# AppImage only, and that is a deliberate narrowing rather than a starting point.
+# electron-updater can self-update an AppImage; it cannot update a deb, rpm or
+# snap. Self-updating is the whole reason this app exists in its current shape,
+# so a Linux target that can never fix itself would be shipping the promise
+# without the mechanism. A deb can follow later behind the same "download the
+# new one" banner the portable exe already shows.
+#
+# The icon is the 256px source: electron-builder's 512 minimum applies only to
+# macOS .icns, and Linux takes 256 — so no upscaling and no soft icon.
+linux:
+  icon: build/iconsrc/icon-256.png
+  category: AudioVideo
+  synopsis: Universal video downloader
+  description: >-
+    Download video and audio from around 1800 sites. Paste a link, pick a
+    format, get a file.
+  target:
+    - target: AppImage
+      arch: [x64]
+  artifactName: ${name}-${version}-${arch}.${ext}
+
 publish:
   provider: github
   owner: BKHornYT

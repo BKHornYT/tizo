@@ -11,6 +11,133 @@ Newest first. One entry per change, using this format:
 
 ---
 
+## 2026-08-24 - v0.0.12: Linux
+
+**What:** First release that builds for Linux. Ships the AppImage alongside the
+Windows installer, portable exe and zip, plus the three portability fixes and the
+platform-aware component registry.
+
+**Why:** Everything under it was already portable; what was missing was packaging
+and a registry that could describe more than one platform.
+
+**Files:** package.json, package-lock.json
+
+**Backward compatibility was proven, not assumed.** The parser shipped in v0.0.11
+was checked out of git and run against the new `components.json`: it still sees
+the Windows urls, sizes and binary names exactly as before, and ignores the new
+`platforms` key. That mattered more than any other check here - every install out
+there fetches this file on first run, and a break would have been unreachable.
+
+**Two things this release does not yet prove:** the ubuntu CI job has never
+produced an AppImage on a tag, and no one has run the result on a real desktop.
+
+---
+
+## 2026-08-24 - Linux support: AppImage, a platform-aware registry, verified end to end
+
+**What:** Tizo builds and ships for Linux. The component registry gained a
+per-platform dimension, the engine and HQ pack are published for Linux, CI has an
+ubuntu job, and electron-builder produces an AppImage.
+
+**Why:** Everything under it was already portable once the three bugs in the
+previous entry were fixed. What was missing was packaging and a registry that
+could describe more than one platform.
+
+**Files:** src/main/components/manifest.ts, src/main/setup/index.ts,
+src/shared/types.ts, src/main/paths.ts, components.json, electron-builder.yml,
+package.json, .github/workflows/release.yml, scripts/test-manifest.ts,
+scripts/test-essentials.ts, scripts/electron-stub-hooks.mjs, CLAUDE.md, task.md
+
+**The registry change is additive, and that is the whole design.** Every client
+shipped since v0.0.5 fetches `components.json` and reads `url`, `size`, `sha256`
+and `binaries` off the top level. So the top level stays exactly as it was - it
+IS the Windows variant - and Linux arrives in an optional `platforms` key those
+clients ignore. Restructuring the file into a platform map would have broken
+first-run setup, a mandatory gate, for every Windows install already out there.
+
+**An unpublished platform resolves to null, never to the Windows spec.** Falling
+back would download `ffmpeg.exe` onto a Linux box, fail the execute check and
+report "installed but will not run. Antivirus may have quarantined it." Absent
+has to read as absent.
+
+**Setup now fails loudly instead of quietly succeeding.** `findComponent`
+returning nothing for an unpublished platform would have left `runSetup` with an
+empty plan, which it treats as "everything already installed" and marks complete
+- an app that believes it is ready with no engine on disk. Unresolvable
+essentials are tracked separately and keep the gate shut.
+
+**AppImage only, and AppImage is deliberately not "portable".** electron-updater
+can self-update an AppImage but not a deb, rpm or snap, so any other format would
+ship the self-updating promise without the mechanism. And because `isPortable()`
+is what *disables* the updater, adding `APPIMAGE` to it - the obvious-looking
+move - would silently switch off self-updating for the entire platform. There is
+a comment in `paths.ts` saying so.
+
+**Measured rather than assumed, in a container:**
+- `yt-dlp_linux` ships curl_cffi with the full impersonate target list, so the
+  bot-wall retry, the impersonating page fetch and the plugin route all work.
+  This was the one fact that decided whether Linux was worth shipping at all.
+- Both ffmpeg candidates were downloaded, repacked, hashed and executed in a
+  clean Debian container before one was chosen.
+- The published asset was fetched back and its sha256 compared against the
+  registry entry, so the hash is verified against what is actually being served
+  rather than against the file that happened to be on this machine.
+
+**ffmpeg 9.0.1 (BtbN, repacked and self-hosted) over a smaller static build.**
+57.5 MB and glibc-independent was tempting, but that build is ffmpeg 7.0.2 from
+2024 - two majors behind Windows - and its glibc advantage is moot because
+Electron 43 will not run on those systems either. Version parity means one ffmpeg
+behaviour to reason about across platforms. The cost is stated plainly: Linux
+first-run is about 151 MB against 92 MB on Windows.
+
+**Two test affordances added:** `test-essentials` takes `TIZO_MANIFEST_URL` and
+accepts a local path, so a candidate registry can be proven against the real
+published assets before it is pushed; and the electron stub hook now supplies the
+JSON import attribute, because the rule that nothing in `src/` changes to
+accommodate a test still holds.
+
+---
+
+## 2026-08-24 - Linux portability groundwork (no packaging yet)
+
+**What:** Three fixes that make the engine layer platform-agnostic, ahead of any
+Linux build: binary names are chosen per platform instead of hardcoded `.exe`,
+downloaded binaries get their execute bit set before the run check, and download
+jobs are spawned `detached` on POSIX so cancelling actually kills the tree.
+
+**Why:** An audit for Linux support found two of these are latent bugs rather
+than missing features - they would have shipped as confusing failures, not as
+"unsupported platform". Fixing them is correct on Windows terms too and costs
+nothing, so they land now while packaging waits.
+
+**Files:** src/main/engine/binaries.ts, src/main/components/install.ts,
+src/main/engine/download.ts, CLAUDE.md, task.md
+
+**The execute bit is the dangerous one.** `installComponent` copied the
+downloaded file and went straight to `verifyRuns`. On Unix a downloaded file has
+no `+x`, so that check fails with EACCES and setup reports *"installed but will
+not run. Antivirus may have quarantined it."* Setup is a mandatory gate, so that
+is a dead app whose error message points away from the cause. Now `chmod 0o755`
+runs first, on both the download path and the offline install-from-file path.
+
+**Cancel would have silently done nothing.** `killTree` already had a POSIX
+branch calling `process.kill(-pid)`, but the spawn passed no `detached`, so no
+process group with that id existed and the call threw ESRCH into an empty catch.
+Stop would report success while yt-dlp and its ffmpeg child kept writing the
+output file. The job is still not `unref`'d and `before-quit` still cancels
+everything, so nothing is orphaned when the app exits.
+
+**Binary names are now a stated contract with the registry.** `resolveYtdlp` and
+`resolveFfmpeg` pick `yt-dlp.exe`/`yt-dlp` and `ffmpeg.exe`/`ffmpeg` by platform,
+which means a future Linux component spec's `binaries` array must land exactly
+those names on disk - otherwise setup installs a working engine and the app then
+reports it missing.
+
+**Deliberately not done:** the manifest still has no platform dimension, there is
+no Linux target in `electron-builder.yml` or CI, and no Linux ffmpeg bundle is
+hosted. See task.md for what that would take and why the manifest change has to
+be additive.
+
 ## 2026-08-22 - v0.0.11
 
 **What:** Ships everything since 0.0.10: pages that refuse a plain request are now

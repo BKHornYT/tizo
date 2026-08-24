@@ -4,6 +4,14 @@ import { join } from 'node:path'
 /**
  * electron-builder's portable target sets PORTABLE_EXECUTABLE_DIR to the folder
  * the exe was launched from. That is the only reliable portable-mode signal.
+ *
+ * An AppImage is NOT portable for this purpose, and adding `APPIMAGE` here would
+ * be an easy-looking mistake with a bad outcome. `isPortable()` is what disables
+ * the updater — a running portable .exe cannot overwrite itself — but
+ * electron-updater *can* update an AppImage, and AppImage is the only Linux
+ * target we ship. Treating it as portable would silently switch off self-updating
+ * on the whole platform, which is the one feature the packaging choice was made
+ * to protect.
  */
 export function isPortable(): boolean {
   return Boolean(process.env['PORTABLE_EXECUTABLE_DIR'])

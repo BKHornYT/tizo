@@ -63,6 +63,10 @@ const jobs = new Map<string, Job>()
 /**
  * yt-dlp spawns ffmpeg as a child. Killing only yt-dlp orphans that ffmpeg,
  * which keeps writing to the output file — so the whole tree has to go.
+ *
+ * The POSIX branch signals a process *group*, which only exists because the
+ * spawn below passes `detached`. Drop that and this throws ESRCH into the empty
+ * catch: cancelling reports success and the download carries on.
  */
 function killTree(pid: number | undefined): void {
   if (!pid) return
@@ -215,7 +219,13 @@ export async function startDownload(
   })
 
   const jobId = randomUUID()
-  const child = spawn(ytdlp.path, args, { windowsHide: true })
+  // `detached` makes yt-dlp a process-group leader on POSIX so killTree has a
+  // group to signal. It is not unref'd — the job stays tracked, and `before-quit`
+  // cancels everything, so nothing is left running after the app exits.
+  const child = spawn(ytdlp.path, args, {
+    windowsHide: true,
+    detached: process.platform !== 'win32'
+  })
   jobs.set(jobId, { child, cancelled: false })
 
   let stderr = ''

@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { existsSync } from 'node:fs'
-import { copyFile, mkdir, mkdtemp, rm, readdir, stat } from 'node:fs/promises'
+import { chmod, copyFile, mkdir, mkdtemp, rm, readdir, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import extract from 'extract-zip'
@@ -49,6 +49,20 @@ async function verifyRuns(exePath: string): Promise<boolean> {
     }
   }
   return false
+}
+
+/**
+ * A downloaded file carries no execute permission on Unix, so it has to be set
+ * before anything tries to run it. Skipped on Windows, where permissions do not
+ * work this way.
+ *
+ * Without this, `verifyRuns` above fails with EACCES and setup reports
+ * "installed but will not run. Antivirus may have quarantined it." — a
+ * mandatory gate failing for a reason the message actively points away from.
+ */
+async function makeExecutable(path: string): Promise<void> {
+  if (process.platform === 'win32') return
+  await chmod(path, 0o755)
 }
 
 export class InstallError extends Error {
@@ -113,6 +127,7 @@ export async function installComponent(
       if (!existsSync(installed) || (await stat(installed)).size === 0) {
         throw new InstallError(`${binary} did not land on disk.`, 'checking')
       }
+      await makeExecutable(installed)
       if (!(await verifyRuns(installed))) {
         throw new InstallError(
           `${binary} installed but will not run. Antivirus may have quarantined it.`,
@@ -141,6 +156,7 @@ export async function installFromFile(
       const found = await findFile(unpacked, binary)
       if (!found) throw new InstallError(`${binary} was missing from that archive.`, 'extracting')
       await copyFile(found, join(target, binary))
+      await makeExecutable(join(target, binary))
       if (!(await verifyRuns(join(target, binary)))) {
         throw new InstallError(`${binary} will not run.`, 'checking')
       }

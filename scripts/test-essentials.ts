@@ -8,16 +8,26 @@
  * reimplementation of it — which is why that module takes its target directory
  * as an argument and imports nothing from electron.
  */
-import { mkdtemp, rm, stat } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { installComponent } from '../src/main/components/install.ts'
-import type { ComponentSpec } from '../src/main/components/manifest.ts'
+import { forPlatform, type ComponentSpec } from '../src/main/components/manifest.ts'
 
 const execFileAsync = promisify(execFile)
-const MANIFEST = 'https://raw.githubusercontent.com/BKHornYT/tizo/main/components.json'
+
+/**
+ * The live registry by default. Overridable with a local path so a candidate
+ * registry can be proven against the real published assets *before* it is
+ * pushed — otherwise the only way to test a new entry is to publish it first
+ * and find out afterwards.
+ */
+const MANIFEST =
+  process.env['TIZO_MANIFEST_URL'] ??
+  'https://raw.githubusercontent.com/BKHornYT/tizo/main/components.json'
+const remote = MANIFEST.startsWith('http')
 
 function ok(label: string, pass: boolean, detail = ''): boolean {
   console.log(`${pass ? 'PASS' : 'FAIL'}  ${label}${detail ? ` — ${detail}` : ''}`)
@@ -28,23 +38,41 @@ const scratch = await mkdtemp(join(tmpdir(), 'tizo-essentials-'))
 let failures = 0
 
 try {
-  const response = await fetch(MANIFEST)
-  if (!ok('registry is reachable unauthenticated', response.ok, `HTTP ${response.status}`)) {
-    failures++
-    process.exitCode = 1
-    throw new Error('registry unreachable')
+  let raw: string
+  if (remote) {
+    const response = await fetch(MANIFEST)
+    if (!ok('registry is reachable unauthenticated', response.ok, `HTTP ${response.status}`)) {
+      failures++
+      process.exitCode = 1
+      throw new Error('registry unreachable')
+    }
+    raw = await response.text()
+  } else {
+    raw = await readFile(MANIFEST, 'utf8')
+    ok(`registry read from ${MANIFEST}`, true)
   }
 
-  const manifest = (await response.json()) as {
+  const manifest = JSON.parse(raw) as {
     essentials: { components: string[] }
     components: ComponentSpec[]
   }
 
+  // Resolved for THIS platform, not taken off the top level. The top-level
+  // fields are the Windows variant, so skipping this would download ffmpeg.exe
+  // onto a Linux box and then fail the execute check — testing the wrong thing
+  // and blaming the wrong cause.
   const specs = manifest.essentials.components
     .map((id) => manifest.components.find((c) => c.id === id))
     .filter((s): s is ComponentSpec => Boolean(s))
+    .map((s) => forPlatform(s))
+    .filter((s): s is ComponentSpec => Boolean(s))
 
-  if (!ok('manifest lists every essential component', specs.length === manifest.essentials.components.length))
+  if (
+    !ok(
+      `manifest publishes every essential component for ${process.platform}`,
+      specs.length === manifest.essentials.components.length
+    )
+  )
     failures++
 
   const stagesSeen = new Set<string>()

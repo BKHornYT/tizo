@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "_comment": "Runtime component registry. Fetched by the app at setup and on demand, so new components and revised site tuning ship without an app release. Keep this file valid JSON \u2014 a broken manifest blocks first-run setup for every user.",
+  "_comment": "Runtime component registry. Fetched by the app at setup and on demand, so new components and revised site tuning ship without an app release. Keep this file valid JSON — a broken manifest blocks first-run setup for every user.",
   "essentials": {
     "version": 1,
     "components": [
@@ -27,7 +27,19 @@
       "binaries": [
         "ffmpeg.exe",
         "ffprobe.exe"
-      ]
+      ],
+      "platforms": {
+        "_comment": "Repacked from the BtbN n9.0 linux64-gpl static build and self-hosted, exactly as the Windows zip is repacked from gyan.dev. Version parity with the Windows pack (9.0.1) is deliberate: one ffmpeg behaviour to reason about across platforms. Bigger than Windows because the Linux build is not UPX-packed.",
+        "linux": {
+          "size": 116186312,
+          "sha256": "09482d7eb852cb1f0ce091c72e52a437b23d37d648451fa5369c4bddcfd91312",
+          "url": "https://github.com/BKHornYT/tizo/releases/download/essentials-v1/tizo-ffmpeg-linux64.zip",
+          "binaries": [
+            "ffmpeg",
+            "ffprobe"
+          ]
+        }
+      }
     },
     {
       "id": "ytdlp",
@@ -45,7 +57,18 @@
       "binaries": [
         "yt-dlp.exe"
       ],
-      "_comment": "sha256 is null by design: this tracks yt-dlp's rolling latest release, so the hash changes on their schedule, not ours. Integrity comes from HTTPS plus a post-download `--version` execution check. Pinning a hash here would break setup every time yt-dlp ships."
+      "_comment": "sha256 is null by design: this tracks yt-dlp's rolling latest release, so the hash changes on their schedule, not ours. Integrity comes from HTTPS plus a post-download `--version` execution check. Pinning a hash here would break setup every time yt-dlp ships.",
+      "platforms": {
+        "_comment": "The Linux build is a separate asset with a different name and no .exe suffix. sha256 is null for the same reason it is null above: this tracks yt-dlp rolling latest.",
+        "linux": {
+          "size": 40446224,
+          "sha256": null,
+          "url": "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux",
+          "binaries": [
+            "yt-dlp"
+          ]
+        }
+      }
     }
   ],
   "siteProfiles": {
@@ -72,7 +95,7 @@
     }
   },
   "domains": {
-    "_comment": "Maps a domain with no working extractor to the optional component that adds one. Empty for now \u2014 the request pipeline fills it as real cases arrive."
+    "_comment": "Maps a domain with no working extractor to the optional component that adds one. Empty for now — the request pipeline fills it as real cases arrive."
   },
   "plugins": [],
   "_plugins_comment": "yt-dlp extractor plugins, delivered without an app release. Each entry needs id, name, version, summary, an https url and a lowercase-hex sha256, which is checked before the file is written anywhere yt-dlp loads from. This is executable code on a user machine: treat it like shipping a binary, never like shipping config, and never populate it from anything a user supplied. Keep ids generic - an id should describe the mechanism, not name a site."

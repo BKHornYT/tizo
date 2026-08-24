@@ -54,3 +54,38 @@ jobs:
         run: npx electron-builder --win --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Deliberately `needs: windows` rather than parallel. Both jobs publish into
+  # the same GitHub release, and two runners racing to create it is a 422 on
+  # whichever loses. Serialising costs a few minutes and removes the race
+  # entirely. It also means the tag/version guard above gates both builds.
+  linux:
+    needs: windows
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck and test
+        run: npm test
+
+      - name: Bundle main, preload and renderer
+        run: npm run build
+        env:
+          TIZO_STATS_ENDPOINT: ${{ vars.TIZO_STATS_ENDPOINT }}
+
+      # AppImage only — see the comment in electron-builder.yml. This uploads its
+      # own `latest-linux.yml`, a separate feed from the Windows `latest.yml`, so
+      # the two update channels never read each other's versions.
+      - name: Package and publish
+        run: npx electron-builder --linux --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

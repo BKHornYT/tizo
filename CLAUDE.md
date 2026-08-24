@@ -2,7 +2,8 @@
 
 **Status:** 🚧 Phase 0 done — scaffold runs
 **Created:** 2026-08-20
-**One-liner:** A universal Windows video downloader with a GUI, self-updating,
+**One-liner:** A universal video downloader for Windows and Linux with a GUI,
+self-updating,
 that installs extra capabilities on demand instead of shipping everything up front.
 
 > ⚠ **The name "Tizo" is provisional.** It lives in `package.json` (`productName`,
@@ -57,6 +58,12 @@ file — and a week later gets a bugfix without doing anything.
   page's own embedded player. Only the browser rung is behind Settings >
   Experimental. Verified end to end on a site that shows Player 1 / Player 2
   instead of a video: page -> player -> plugin -> one downloadable row.
+- **Linux is supported.** Builds as an AppImage; the component registry carries
+  per-platform variants and both Essentials are published for Linux. The real
+  installer was proven end to end in a container against the real published
+  assets, and `yt-dlp_linux` was confirmed to ship curl_cffi so the bot-wall and
+  plugin routes work. Not yet done: a tagged CI run producing the AppImage, and
+  running it on a real desktop. See task.md.
 - **Deployed:** the usage endpoint in `server/`, live at
   `https://tizo-stats.itemhunt-analytics.workers.dev` with `TIZO_STATS_ENDPOINT`
   set as a repo variable. Both upload routes verified against the real Worker.
@@ -66,15 +73,16 @@ file — and a week later gets a bugfix without doing anything.
   secrets set. `GET` returns 401 and the sign-in page; the redirect to Google
   carries the right client, redirect URI and scopes; a forged `state` is
   rejected. Uploads unaffected. Not yet walked through in a browser end to end.
-- **Unsigned:** every install shows a SmartScreen warning until a certificate
-  exists.
+- **Unsigned:** every Windows install shows a SmartScreen warning until a
+  certificate exists. Linux has no equivalent gate.
 
 ## Stack
 
 - **Electron** + **React** + **Tailwind** — main process in Node 24
 - **yt-dlp** (bundled binary, self-updating) — the download engine
 - **ffmpeg** — *not* in the installer; arrives in the first-run Essentials bundle
-- **electron-builder** — NSIS installer + portable exe + zip
+- **electron-builder** — Windows: NSIS installer + portable exe + zip.
+  Linux: AppImage only (see the decision below)
 - **electron-updater** → GitHub Releases (`BKHornYT/tizo`)
 
 Installed and verified on this machine: Node 24.13.1, npm 11.8.0, Python 3.12.12,
@@ -89,10 +97,14 @@ npm run dev          # Electron + Vite, hot reload, devtools detached
 npm run typecheck    # tsc --noEmit
 npm run build        # bundles main + preload + renderer into out/
 npm run dist         # build + electron-builder → installer, portable, zip in dist/
+npm run dist:linux   # AppImage (needs a Linux host; CI does this on ubuntu-latest)
 npm run dist:dir     # unpacked build, no installers — much faster for smoke tests
-npm test                # offline suite: typecheck + args, formats and stats assertions
+npm test                # offline suite: typecheck + args, formats, embeds, manifest, stats
 npm run test:fetcher    # network: resume, integrity, corrupt-part discard
-npm run test:essentials # network, ~92 MB: real installer against real published assets
+npm run test:essentials # network: real installer against real published assets
+                        # ~92 MB on Windows, ~156 MB on Linux
+TIZO_MANIFEST_URL=./components.json npm run test:essentials  # prove a candidate
+                        # registry against the real assets BEFORE pushing it
 npm run test:stats      # stats upload against a local stub; part of `npm test`
 TIZO_STATS_TEST_URL=<url> npm run test:stats   # same test against the real Worker
 npm run icon            # regenerate build/icon.ico from build/iconsrc/
@@ -151,6 +163,7 @@ scripts/test-args.ts       offline assertions that settings reach the command li
 scripts/test-formats.ts    offline assertions on format shaping (generic/YouTube/HLS)
 scripts/test-embeds.ts     offline assertions on embed finding and media classifying
 scripts/test-stats.ts      runs the REAL stats module against a stub server
+scripts/test-manifest.ts   platform resolution + registry validation (28 assertions)
 scripts/electron-stub*.mjs loader hooks that let src/main run under plain Node
 scripts/test-fetcher.ts    network test for resume and integrity
 scripts/test-essentials.ts real end-to-end install of the published components
@@ -182,6 +195,32 @@ supported, cheapest route first.
 ## Key Decisions
 
 Newest first.
+
+- **2026-08-24 — Linux ships as an AppImage, and the registry grew a platform
+  axis to carry it.** Three choices, each with a sharp edge:
+
+  *The registry change is additive and must stay that way.* Every client shipped
+  since v0.0.5 fetches `components.json` and reads `url`/`size`/`sha256`/
+  `binaries` off the top level, so the top level **is** the Windows variant and
+  Linux lives in an optional `platforms` key those clients ignore. Restructuring
+  the file into a platform map would break first-run setup — a mandatory gate —
+  for every Windows install already out there.
+
+  *An unpublished platform resolves to `null`, never to the Windows spec.* A
+  fallback would put `ffmpeg.exe` on a Linux box, fail the execute check and
+  blame the user's antivirus.
+
+  *AppImage only, because electron-updater can self-update an AppImage and cannot
+  update a deb, rpm or snap.* Any other format would ship the self-updating
+  promise without the mechanism. Note the trap in `paths.ts`: `isPortable()` is
+  what **disables** the updater, so adding `APPIMAGE` to it — the obvious-looking
+  move — would silently switch self-updating off for the whole platform.
+
+  Verified in a container rather than assumed: `yt-dlp_linux` ships curl_cffi
+  with the full impersonate target list (so the bot-wall retry, the impersonating
+  page fetch and the plugin route all work), and the real installer completes end
+  to end against the real published assets. Cost stated plainly: Linux first-run
+  is ~151 MB against 92 MB on Windows.
 
 - **2026-08-22 — Plugins arrive from the registry, verified, and are visible in
   Options.** Each spec carries an https url and a sha256 that `fetchFile` checks
@@ -359,10 +398,49 @@ Newest first.
   an addon is what gives the "install to unlock" flow something real to do.
 - **2026-08-20 — Electron over Tauri/Python.** Best Windows auto-update story;
   Rust toolchain isn't installed and PyInstaller self-update is hand-rolled pain.
-- **2026-08-20 — Windows only.** One installer, one release story. Nothing in the
-  stack blocks adding macOS/Linux later.
+- **2026-08-20 — Windows only.** *Superseded 2026-08-24 by the Linux entry at the
+  top of this list.* macOS remains unbuilt; nothing in the stack blocks it.
 
 ## Gotchas
+
+- **`components.json` is a live compatibility surface, not just a config file.**
+  Clients from v0.0.5 onward fetch it and read the top-level component fields
+  directly. Anything added must be additive and ignorable; moving or renaming a
+  top-level field breaks first-run setup for installs already in the wild, and
+  there is no way to reach them to fix it.
+- **An AppImage must not be treated as portable.** `isPortable()` is what turns
+  the updater off. AppImage is the only Linux target and it *can* self-update, so
+  adding `APPIMAGE` to that check would disable self-updating for the entire
+  platform while looking like a correct port of the Windows behaviour.
+- **A component that is not published for a platform must resolve to null, and
+  setup must say so.** `findComponent` returning nothing left `runSetup` with an
+  empty plan, which it reads as "everything is already installed" and marks
+  complete — an app that believes it is ready with no engine on disk.
+- **Linux first-run is ~151 MB, not the ~92 MB Windows costs.** The Linux ffmpeg
+  build is not UPX-packed (111 MB zip vs 77 MB), and `yt-dlp_linux` is 40 MB
+  against 18 MB for the exe. State it on a download page rather than surprising
+  people mid-setup.
+- **Do not write regexes into this codebase through a shell one-liner.** Two bugs
+  in one session: a replacement halved a doubled backslash so a path-separator guard
+  silently checked only `/`, and perl's `$/` under `-0` interpolated a NUL byte
+  into a test. Both looked right on screen. Use the editor for anything with a
+  backslash, and prefer `includes()` over a character class where it reads the
+  same.
+- **A downloaded binary is not executable on Unix.** `installComponent` must
+  `chmod 0o755` before `verifyRuns`, or the check fails with EACCES and setup
+  reports "installed but will not run. Antivirus may have quarantined it." Setup
+  is a mandatory gate, so that is a dead app with an error that points away from
+  the cause. Windows is skipped — permissions do not work that way there.
+- **`process.kill(-pid)` needs a process group, which needs `detached`.** The
+  POSIX branch of `killTree` signals a group; the download spawn did not create
+  one, so the call threw ESRCH into an empty catch and cancelling reported
+  success while yt-dlp and its ffmpeg child kept writing the file. If a spawn is
+  ever tree-killed, it must be `detached` on POSIX. Do not `unref` it — the job
+  stays tracked and `before-quit` cancels everything.
+- **Binary names are a contract with the registry, not a local detail.**
+  `binaries.ts` resolves `yt-dlp.exe`/`yt-dlp` and `ffmpeg.exe`/`ffmpeg` by
+  platform. A component spec's `binaries` array must put exactly those names on
+  disk, or setup installs a working engine and the app then reports it missing.
 
 - **Never clear the whole plugin root to refresh bundled plugins.** Registry
   plugins live in the same directory, so wiping it on launch deletes on every

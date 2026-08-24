@@ -277,6 +277,68 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
       signal, so a preroll ad could outrank the feature on some sites
 - [ ] No UI for choosing between Player 1 and Player 2 — the first that works wins
 
+### Linux support — shipped 2026-08-24
+> Target is **AppImage only**: the one Linux format electron-updater can
+> self-update, and self-updating is a pillar of this project. A deb could follow
+> with the updater disabled and the existing download banner shown.
+
+- [x] Binary names chosen per platform (`yt-dlp.exe`/`yt-dlp`,
+      `ffmpeg.exe`/`ffmpeg`). A contract with the registry: a spec's `binaries`
+      array must put exactly those names on disk
+- [x] **Execute bit set before the run check** — a downloaded file has no `+x` on
+      Unix, so `verifyRuns` failed EACCES and setup blamed antivirus
+- [x] **Cancel fixed** — `killTree`'s POSIX branch signals a process group that
+      only exists if the spawn is `detached`; it was not, so Stop reported
+      success while ffmpeg kept writing
+- [x] **Registry gained a platform dimension, additively.** Top-level
+      url/size/sha256/binaries stay the Windows variant because every client
+      since v0.0.5 reads them directly; Linux arrives in an optional `platforms`
+      key those clients ignore
+- [x] An unpublished platform resolves to **null, never the Windows spec**
+- [x] Platform variants validated field by field — https only, positive size,
+      explicit sha256 (`null` must be stated, not omitted), and binary names with
+      no path separators
+- [x] **Setup fails loudly on an unpublished platform** rather than finding an
+      empty plan and marking itself complete with no engine on disk
+- [x] `yt-dlp_linux` published in the registry (40.4 MB, rolling latest)
+- [x] `tizo-ffmpeg-linux64.zip` built from the BtbN n9.0 static build, uploaded
+      to `essentials-v1`, and the **published asset fetched back and hash-checked
+      against the registry entry** (116,186,312 bytes, sha256 09482d7e…)
+- [x] AppImage target in `electron-builder.yml`; icon is the 256px source, since
+      electron-builder's 512 floor applies only to macOS .icns
+- [x] `paths.ts` documents why AppImage is deliberately NOT `isPortable()` —
+      that flag disables the updater, and AppImage is the one Linux target that
+      can self-update
+- [x] `ubuntu-latest` CI job, `needs: windows` so the two jobs cannot race to
+      create the same release. Publishes its own `latest-linux.yml` feed
+- [x] `npm run test:manifest` — 28 assertions on platform resolution and
+      registry validation, running the real module via the electron stub hook
+- [x] **Verified in a container: `yt-dlp_linux` ships curl_cffi with the full
+      impersonate target list.** The bot-wall retry, the impersonating page fetch
+      and the plugin route all work on Linux. This was the fact that decided
+      whether Linux was worth shipping
+- [x] **Verified in a container: the real installer, against the real published
+      assets** — resolve, download, sha256, unzip, chmod, execute check
+
+**First-run cost is higher on Linux: about 151 MB** (40 MB engine + 111 MB HQ
+pack) against 92 MB on Windows. The Linux ffmpeg build is not UPX-packed. Worth
+stating on any download page rather than surprising people mid-setup.
+
+- [x] **v0.0.12 tagged** - first release building for Linux
+- [x] Backward compatibility proven: the v0.0.11 parser, checked out of git, still
+      reads the new registry and sees the Windows fields unchanged
+- [ ] **Confirm CI actually produced the AppImage** and that `latest-linux.yml`
+      is attached to the release
+- [ ] Run the AppImage on a real desktop: check the terms gate, setup download,
+      a real download, and that the updater offers rather than refuses
+- [ ] Re-test the experimental sniff child on Linux — the site-isolation
+      workaround was tuned against Windows Chromium
+- [ ] arm64 is not built. `yt-dlp_linux_aarch64` exists; ffmpeg and an AppImage
+      arch would both need adding
+
+**Not a problem:** SmartScreen has no Linux equivalent, plugins ship as plain
+`.py` text, and the feedback sanitiser already strips `/home/<user>`.
+
 ### Phase 6 — Clipboard + history  ← NEXT
 
 - [ ] Clipboard watcher with toast prompt (opt-out in settings)

@@ -1,7 +1,12 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { binDir } from '../paths'
-import { findComponent, loadManifest, type ComponentSpec } from '../components/manifest'
+import {
+  findComponent,
+  loadManifest,
+  type ComponentSpec,
+  type Manifest
+} from '../components/manifest'
 import { installComponent, installFromFile, InstallError } from '../components/install'
 import { markComplete, readState, recordInstalled } from './state'
 import type { SetupPlan, SetupProgress } from '../../shared/types'
@@ -9,6 +14,19 @@ import type { SetupPlan, SetupProgress } from '../../shared/types'
 /** Installed means the files are actually on disk, not merely recorded. */
 function present(spec: ComponentSpec): boolean {
   return spec.binaries.every((b) => existsSync(join(binDir(), b)))
+}
+
+/**
+ * Essentials the registry does not publish for this platform.
+ *
+ * Tracked separately from "not yet installed", because they are unresolvable
+ * rather than pending — nothing the user does will make them appear. Folding
+ * them into the ordinary missing list would let setup finish with an empty plan
+ * and mark itself complete: an app that believes it is ready with no engine on
+ * disk, which is the exact failure the mandatory gate exists to prevent.
+ */
+function unresolvedEssentials(manifest: Manifest): string[] {
+  return manifest.essentials.components.filter((id) => !findComponent(manifest, id))
 }
 
 export async function getSetupPlan(): Promise<SetupPlan> {
@@ -20,9 +38,13 @@ export async function getSetupPlan(): Promise<SetupPlan> {
     .filter((s): s is ComponentSpec => Boolean(s))
 
   const missing = specs.filter((s) => !present(s))
+  const unresolved = unresolvedEssentials(manifest)
 
   return {
-    required: missing.length > 0,
+    // An unresolvable essential keeps the gate shut rather than waving the user
+    // through into an app that has no download engine.
+    required: missing.length > 0 || unresolved.length > 0,
+    unavailable: unresolved,
     manifestSource: source,
     essentialsVersion: manifest.essentials.version,
     completedAt: state.completedAt,
@@ -52,6 +74,23 @@ export function cancelSetup(): void {
  */
 export async function runSetup(emit: (progress: SetupProgress) => void): Promise<void> {
   const { manifest } = await loadManifest()
+
+  const unresolved = unresolvedEssentials(manifest)
+  if (unresolved.length > 0) {
+    emit({
+      phase: 'error',
+      overallPercent: 0,
+      componentId: null,
+      componentName: null,
+      stage: null,
+      speed: null,
+      receivedBytes: 0,
+      totalBytes: 0,
+      error: `The registry has no ${process.platform} build of: ${unresolved.join(', ')}.`
+    })
+    return
+  }
+
   const specs = manifest.essentials.components
     .map((id) => findComponent(manifest, id))
     .filter((s): s is ComponentSpec => Boolean(s))
