@@ -327,10 +327,26 @@ stating on any download page rather than surprising people mid-setup.
 - [x] **v0.0.12 tagged** - first release building for Linux
 - [x] Backward compatibility proven: the v0.0.11 parser, checked out of git, still
       reads the new registry and sees the Windows fields unchanged
-- [ ] **Confirm CI actually produced the AppImage** and that `latest-linux.yml`
-      is attached to the release
-- [ ] Run the AppImage on a real desktop: check the terms gate, setup download,
-      a real download, and that the updater offers rather than refuses
+- [x] **CI produced the AppImage** — both jobs green, release public (not a
+      draft): `tizo-0.0.12-x86_64.AppImage` (128.2 MB) and `latest-linux.yml`
+- [x] **The published AppImage was inspected and launched.** It carries the
+      Linux registry entries, the bundled `tizo-hosts` plugin, `app-update.yml`
+      and the stats endpoint as a baked-in literal; it starts under xvfb and
+      stays up, and **electron-updater accepts it as an AppImage** rather than
+      refusing — which is the design call in `paths.ts` confirmed from the other
+      side. (Launched from the extracted `AppRun`, electron-updater says "not an
+      AppImage" and would refuse; that is what `APPIMAGE` being unset looks like.)
+- [x] Existing Windows installs proven safe: the v0.0.11 parser, checked out of
+      git, reads the new registry and sees the Windows fields unchanged
+- [ ] **Use it on a real desktop.** The container proves the install pipeline and
+      that the process starts; it says nothing about the UI — terms gate, setup
+      download, a real download, tray-less window behaviour
+- [ ] **Linux auto-update has never round-tripped.** `latest-linux.yml` is
+      well-formed and the updater accepts the AppImage, but the first real proof
+      is v0.0.13 being picked up by an installed copy — same as Windows, which
+      was only proven at 0.0.1 → 0.0.2
+- [ ] CI warns that `actions/checkout@v4` and `setup-node@v4` target Node 20 and
+      are being forced onto 24. Harmless now; will stop being harmless
 - [ ] Re-test the experimental sniff child on Linux — the site-isolation
       workaround was tuned against Windows Chromium
 - [ ] arm64 is not built. `yt-dlp_linux_aarch64` exists; ffmpeg and an AppImage

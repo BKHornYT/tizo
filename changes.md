@@ -28,8 +28,16 @@ the Windows urls, sizes and binary names exactly as before, and ignores the new
 `platforms` key. That mattered more than any other check here - every install out
 there fetches this file on first run, and a break would have been unreachable.
 
-**Two things this release does not yet prove:** the ubuntu CI job has never
-produced an AppImage on a tag, and no one has run the result on a real desktop.
+**Verified after publishing, against the published artifacts:** both CI jobs
+green and the release public, not a draft. The AppImage carries the Linux
+registry entries, the bundled plugin, `app-update.yml` and the stats endpoint as
+a literal; it starts under xvfb and stays up; and electron-updater accepts it as
+an AppImage rather than refusing — the `paths.ts` decision confirmed from the
+other side. The live registry serves the Linux variants at the raw URL shipped
+clients fetch.
+
+**Still unproven:** nobody has used it on a real desktop, and Linux auto-update
+has not round-tripped — that needs v0.0.13 to be picked up by an installed copy.
 
 ---
 
