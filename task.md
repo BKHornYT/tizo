@@ -4,6 +4,77 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
 
 ## Now
 
+### 🔴 P0 — the bundled plugin breaks YouTube (found 2026-08-24)
+
+**Confirmed, not suspected.** Run against the app's own managed binary:
+
+```
+yt-dlp.exe --simulate --print "%(extractor)s" <a youtube watch url>
+  → ERROR: Unsupported URL: https://www.youtube.com/embed/<id>
+
+yt-dlp.exe --no-plugin-dirs --simulate --print "%(extractor)s" <same url>
+  → youtube | Me at the zoo
+```
+
+So: **plugins on = YouTube dead. Plugins off = YouTube fine.** This has been
+shipping since v0.0.11, and v0.0.12 carries it to Linux as well. It breaks the
+single most important site in the app, which is the same reason the mandatory
+ffmpeg download exists.
+
+**Leading hypothesis** (confirm before fixing): `kvsplayer.py` does
+`class GenericIE(_GenericIE)` — the KVS fix from v0.0.10, which overrides
+yt-dlp's generic extractor. Registering a subclass of GenericIE through the
+plugin loader appears to change extractor precedence so that the override wins
+over built-ins, sending YouTube to generic instead of the YouTube extractor.
+Generic then finds an `/embed/` URL in the page and fails on that. Note the
+reported URL in the error is one we never passed in — that is the tell.
+
+`embedhost.py` is probably not the culprit: its `_VALID_URL` needs a literal
+`/e/` or `/d/` path segment, which `/embed/` does not match. Rule it out rather
+than assume it.
+
+- [ ] Confirm which of the two plugin files causes it — move one aside at a time
+- [ ] Confirm the mechanism: is the plugin GenericIE winning over built-in
+      extractors generally, or only for some URL shapes? Check with a handful of
+      mainstream sites, not just YouTube
+- [ ] Fix so the KVS override applies **only** when generic would have been
+      chosen anyway, and never shadows a named built-in extractor
+- [ ] **Add a regression test that a YouTube URL resolves to the `youtube`
+      extractor with the bundled plugins installed.** This shipped twice because
+      nothing asserts that plugins leave built-ins alone. `test:formats` and
+      friends are all offline and never load a plugin
+- [ ] Ship as v0.0.13 — which also gives Linux auto-update its first real
+      round-trip test
+
+> **Why this was missed:** every plugin test to date asked "does the plugin
+> extract from its target site?" and none asked "does the plugin leave the other
+> 1800 sites alone?" A plugin that overrides a *built-in* is a different risk
+> class from one that adds a new host, and only the second was being reviewed.
+
+### 🟡 P1 — stats: probably a symptom of the above, confirm after fixing
+
+Read from the packaged install's `stats.json`:
+
+```
+shareStats: true          ← opted in
+installId: present        ← install ping DID send (lastPing set)
+lifetime: {}  pending: {} ← no site counts at all
+```
+
+`lifetime` is the user's own tally and is kept even when opted out, so an empty
+one means **no download ever completed** — there was never anything to count or
+upload. That is consistent with YouTube being the thing that was tried.
+
+- [ ] After the plugin fix: complete one real download, then check `lifetime`
+      gets an entry and `pending` clears on the next upload
+- [ ] Separately, the dashboard has still never been signed into in a browser.
+      Add `boysgunsmoke@gmail.com` under Audience → Test users first, or Google
+      returns `access_denied` before the Worker is ever reached
+- [ ] Only if counts exist locally but never arrive: suspect the upload path.
+      `npm run test:stats` already covers the wire format against a stub, and was
+      run once against the real Worker, so start with the local tally
+
+
 ### Phase 4 — Queue + playlists ✅ complete
 - [x] Job queue with concurrency cap, stop/retry, batch URL paste
 - [x] Drag & drop links anywhere on the window
