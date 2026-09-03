@@ -39,6 +39,18 @@ jobs:
           fi
           echo "releasing $PKG"
 
+      # `npm test` now includes test:plugins, which runs the real engine against
+      # the real plugin files and FAILS rather than skips without a binary. That
+      # is deliberate — a silent skip is how the v0.0.11 extractor bug reached
+      # two releases — but it means CI has to supply one.
+      - name: Fetch yt-dlp for the plugin test
+        shell: bash
+        run: |
+          mkdir -p .tools
+          curl -fsSL -o .tools/yt-dlp.exe \
+            https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe
+          echo "TIZO_YTDLP=$(node -p "require('path').resolve('.tools/yt-dlp.exe')")" >> "$GITHUB_ENV"
+
       - name: Typecheck and test
         run: npm test
 
@@ -73,6 +85,17 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # As on Windows — see the note there. `yt-dlp_linux` is the build the
+      # registry ships, and a downloaded binary carries no execute bit.
+      - name: Fetch yt-dlp for the plugin test
+        shell: bash
+        run: |
+          mkdir -p .tools
+          curl -fsSL -o .tools/yt-dlp \
+            https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux
+          chmod +x .tools/yt-dlp
+          echo "TIZO_YTDLP=$(node -p "require('path').resolve('.tools/yt-dlp')")" >> "$GITHUB_ENV"
 
       - name: Typecheck and test
         run: npm test

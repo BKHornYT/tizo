@@ -50,6 +50,15 @@ file — and a week later gets a bugfix without doing anything.
 - **Known broken / not started:** no clipboard *watcher* or history or tray
   (Phase 6), no playlist monitoring (6.5), no optional addon gates or sign-in
   window (7 — reshaped by [docs/browser-engine.md](docs/browser-engine.md)).
+- **Fixed in 0.0.13: the bundled KVS plugin was disabling every built-in
+  extractor.** It declared its override with `_PLUGIN_NAME`, which yt-dlp does
+  not read, so it registered as a *new* extractor — and new extractors are
+  prepended to the lookup. Being a `GenericIE` subclass it inherited
+  `_VALID_URL = r'.*'` and matched every URL first, so YouTube, Vimeo,
+  Dailymotion and the other ~1745 sites all fell through to generic. Shipped in
+  v0.0.11 and v0.0.12. The fix is the documented `plugin_name=` class keyword,
+  which swaps the class in for generic *in place* and leaves the ordering alone.
+  Guarded by `npm run test:plugins`, which fails 7 assertions on the old form.
 - **Site support scales without a release:** extractor plugins ship with the
   app and can also arrive from the registry, sha256-verified, listed in
   Options. Walled pages are readable — a plain fetch falls back to an
@@ -110,8 +119,11 @@ npm run dist         # build + electron-builder → installer, portable, zip in 
 npm run dist:linux   # AppImage (needs a Linux host; CI does this on ubuntu-latest)
 npm run dist:dir     # unpacked build, no installers — much faster for smoke tests
 npm test                # offline suite: typecheck + args, formats, embeds, manifest,
-                        # stats, worker
+                        # stats, worker, plugins
 npm run test:worker     # the stats Worker's delete routes, offline, stubbed D1
+npm run test:plugins    # the bundled plugins leave the built-in extractors alone.
+                        # Offline but needs a yt-dlp binary; FAILS without one.
+                        # Set TIZO_YTDLP to point at a specific binary
 npm run test:fetcher    # network: resume, integrity, corrupt-part discard
 npm run test:essentials # network: real installer against real published assets
                         # ~92 MB on Windows, ~156 MB on Linux
@@ -178,6 +190,10 @@ scripts/test-stats.ts      runs the REAL stats module against a stub server
 scripts/test-manifest.ts   platform resolution + registry validation (28 assertions)
 scripts/test-worker.mjs    runs the REAL server/worker.js against a stubbed D1:
                            the delete routes, their gate, and the fall-through guard
+scripts/test-plugins.mjs   runs the REAL yt-dlp against the REAL resources/plugins,
+                           copied into a temp tree: the built-ins survive the
+                           plugins, and the KVS widening still works
+scripts/fixtures/          synthetic pages for the tests; invented, never a real site
 scripts/electron-stub*.mjs loader hooks that let src/main run under plain Node
 scripts/test-fetcher.ts    network test for resume and integrity
 scripts/test-essentials.ts real end-to-end install of the published components
@@ -212,6 +228,21 @@ supported, cheapest route first.
 ## Key Decisions
 
 Newest first.
+
+- **2026-09-03 — A plugin may override a built-in only through yt-dlp's own
+  override keyword, and a test must prove the other extractors survived.**
+  `plugin_name=` is not decoration: it is what makes `__init_subclass__` swap
+  the class in for `GenericIE` inside generic's own module, preserving an
+  extractor order that puts generic last on purpose. Anything else registers a
+  new extractor, and new extractors are prepended. *Why the test matters more
+  than the fix:* the override kept extracting from its target site perfectly
+  while every other extractor was unreachable, so no existing check could go
+  red. `test:plugins` therefore asserts both halves — the widening still works,
+  **and** three mainstream hosts still reach their own extractors — and it runs
+  in `npm test` rather than beside it, because a test that has to be remembered
+  is how this reached two releases. *The sharp edge:* it needs a real yt-dlp
+  binary and **fails rather than skips** without one, so CI fetches one; a
+  silent skip would restore the exact hole it was written to close.
 
 - **2026-08-25 — The dashboard can delete what it shows, behind the same gate
   that shows it.** `POST /admin/delete` removes one site row, the site table,
@@ -454,6 +485,9 @@ add it there and add its line here.
 - Pipe secrets with `printf '%s'`, never `echo` — a trailing newline breaks exact comparisons
 
 **Plugins and fetching pages**
+- A plugin overriding a built-in needs the `plugin_name=` class keyword — without it, it is prepended as a new extractor and a `GenericIE` subclass swallows every URL
+- A plugin test that only checks its own target site cannot see that the plugin broke the other 1800
+- Flags cannot isolate yt-dlp's plugin search — copy the binary next to a temp plugin tree
 - Never clear the whole plugin root to refresh bundled plugins — it deletes registry plugins every launch
 - A plugin is executable code on a user's machine — bundled or sha256-verified from our registry, never a user URL
 - `TIZO_MANIFEST_URL` moves the registry off the public repo without an app change

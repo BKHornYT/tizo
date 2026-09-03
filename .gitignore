@@ -11,3 +11,6 @@ resources/bin/
 
 # yt-dlp page dumps: filenames carry the page title and host.
 *.dump
+
+# yt-dlp fetched by CI for the plugin test
+.tools/

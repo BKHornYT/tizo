@@ -11,6 +11,79 @@ Newest first. One entry per change, using this format:
 
 ---
 
+## 2026-09-03 — The bundled plugin was disabling every yt-dlp extractor
+
+**What:** `resources/plugins/tizo-hosts/.../kvsplayer.py` now declares its
+override of generic with yt-dlp's `plugin_name=` **class keyword** instead of a
+`_PLUGIN_NAME` attribute. Added `scripts/test-plugins.mjs` (13 assertions) and
+`scripts/fixtures/kvs-page.html`, wired `test:plugins` into `npm test`, and gave
+both CI jobs a step that fetches a yt-dlp for it. Version 0.0.13.
+
+**Why:** `_PLUGIN_NAME` is not an API — yt-dlp never reads it. Without the real
+keyword the class was collected as an ordinary *new* plugin extractor, and
+`load_plugins` prepends those to the lookup. Being a `GenericIE` subclass it
+inherited `_VALID_URL = r'.*'`, so it sat at the front of the list matching every
+URL in existence and no named extractor was ever reached. This shipped in
+v0.0.11 and v0.0.12.
+
+**Files:** resources/plugins/tizo-hosts/yt_dlp_plugins/extractor/kvsplayer.py,
+scripts/test-plugins.mjs, scripts/fixtures/kvs-page.html, package.json,
+.github/workflows/release.yml, .gitignore, CLAUDE.md, docs/gotchas.md, task.md,
+changes.md
+
+**It was never a YouTube bug.** The ticket described YouTube dying, and that
+framing nearly scoped the fix too small. Vimeo and Dailymotion were checked
+before touching anything and both fell through to generic identically — all
+~1745 built-in extractors were unreachable, and YouTube was simply the one
+somebody tried. Two releases of the app were running on the generic extractor
+alone.
+
+**The mechanism was read out of yt-dlp's source, not inferred from behaviour.**
+`InfoExtractor.__init_subclass__` acts only on the `plugin_name` keyword; it sets
+`PLUGIN_NAME`, which is precisely what `get_regular_classes()` filters on to
+decide something is an override rather than an addition, and it does
+`setattr(sys.modules[super_class.__module__], 'GenericIE', cls)` so the class is
+substituted *in place*. That leaves untouched the order `extractors.py` builds
+on purpose — "Add Youtube first to improve matching performance … Add Generic
+last so that it is the fallback". Confirming that mattered: the plausible-looking
+fix of narrowing `_VALID_URL` would have kept the class at the front of the list
+and broken different sites instead.
+
+**The test is the actual deliverable.** Under the broken plugin, every KVS
+assertion in the new suite still passes — the override extracted from its target
+site flawlessly the whole time it was shadowing everything else. No test that
+asks "does this plugin work?" could have caught this; only one that asks "does
+everything else still work?" can. So `test:plugins` checks three unrelated
+mainstream hosts, checks that no plugin registers a class shadowing a built-in,
+and keeps an allow list of added extractor names so adding one is a decision
+somebody has to make in the test file. Seven of its thirteen assertions fail
+against the shipped form.
+
+**It is offline, so it can live in `npm test`.** Extractor selection happens
+before any request succeeds and yt-dlp tags its output with the extractor it
+chose, so a dead proxy (`--proxy http://127.0.0.1:1`) reveals the choice with
+nothing leaving the machine; the KVS half reads a local fixture over `file://`.
+That is what let it go into `npm test` rather than beside it — and a test that
+has to be remembered is exactly how this reached two releases.
+
+**It fails rather than skips without a binary,** which is why CI grew a download
+step. A skip would have restored the hole the test exists to close. Isolation
+needed the same care: `--no-plugin-dirs` beats `--plugin-dirs` whatever the
+order and the default search follows the executable, so the test copies the
+binary next to a plugin tree built from `resources/plugins/` — the developer's
+installed copy cannot mask a broken file in the repo, and it incidentally proves
+the on-disk layout `plugins.ts` writes is one yt-dlp discovers.
+
+**One extra fix found by the fixture.** The plugin decided whether to widen
+detection using a looser regex than yt-dlp's own, so the fixture's explanatory
+comment — which spelled out the declaration — silently switched the widening
+off. The guard now uses yt-dlp's exact prefix, and the fixture carries a warning
+not to write that text anywhere in the file.
+
+**Verified end to end, not just asserted:** a real YouTube download through the
+app's own managed binary with the plugins live — 19.0s, av1 video + opus audio,
+merged by the app's own ffmpeg.
+
 ## 2026-08-25 — Docs brought current; Gotchas split into its own file
 
 **What:** Moved all 51 Gotchas into `docs/gotchas.md` and left a grouped

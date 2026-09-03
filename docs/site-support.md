@@ -106,6 +106,22 @@ Treating a plugin as "just a config file" is how this becomes a way to run
 arbitrary code on every install. It is closer to shipping a binary than to
 shipping a site profile, and the safeguards must match.
 
+**A plugin that overrides a built-in is a different risk class from one that
+adds a host,** and it has already cost this project two releases. Adding an
+extractor can only affect URLs it claims. Overriding one reaches into yt-dlp's
+extractor ordering, and getting it slightly wrong takes out *every* site at
+once — see the `plugin_name=` entry in [gotchas.md](gotchas.md) for the exact
+trap. Two rules follow:
+
+- Prefer adding an extractor. Override a built-in only when the behaviour you
+  need is inside a method a new extractor can never reach, as with the KVS
+  detection sitting in generic.
+- An override must be declared with yt-dlp's `plugin_name=` **class keyword**,
+  and `npm run test:plugins` must stay green. That suite exists because a
+  broken override can keep passing every test of its own behaviour while
+  breaking everything around it — so a new plugin needs a check that the rest
+  of yt-dlp survived it, not just that the plugin works.
+
 ## Where a suggestion goes
 
 The reporting path already exists: a failed row offers "Report site" for

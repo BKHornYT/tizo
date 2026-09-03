@@ -4,52 +4,53 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
 
 ## Now
 
-### 🔴 P0 — the bundled plugin breaks YouTube (found 2026-08-24)
+### ✅ P0 FIXED — the bundled plugin was disabling every extractor (2026-09-03)
 
-**Confirmed, not suspected.** Run against the app's own managed binary:
+Worse than the ticket said. It was never a YouTube bug: **the plugin made all
+~1745 built-in extractors unreachable.** Vimeo and Dailymotion fell through to
+generic exactly like YouTube did. Shipped in v0.0.11 and v0.0.12.
 
-```
-yt-dlp.exe --simulate --print "%(extractor)s" <a youtube watch url>
-  → ERROR: Unsupported URL: https://www.youtube.com/embed/<id>
-
-yt-dlp.exe --no-plugin-dirs --simulate --print "%(extractor)s" <same url>
-  → youtube | Me at the zoo
-```
-
-So: **plugins on = YouTube dead. Plugins off = YouTube fine.** This has been
-shipping since v0.0.11, and v0.0.12 carries it to Linux as well. It breaks the
-single most important site in the app, which is the same reason the mandatory
-ffmpeg download exists.
-
-**Leading hypothesis** (confirm before fixing): `kvsplayer.py` does
-`class GenericIE(_GenericIE)` — the KVS fix from v0.0.10, which overrides
-yt-dlp's generic extractor. Registering a subclass of GenericIE through the
-plugin loader appears to change extractor precedence so that the override wins
-over built-ins, sending YouTube to generic instead of the YouTube extractor.
-Generic then finds an `/embed/` URL in the page and fails on that. Note the
-reported URL in the error is one we never passed in — that is the tell.
-
-`embedhost.py` is probably not the culprit: its `_VALID_URL` needs a literal
-`/e/` or `/d/` path segment, which `/embed/` does not match. Rule it out rather
-than assume it.
-
-- [ ] Confirm which of the two plugin files causes it — move one aside at a time
-- [ ] Confirm the mechanism: is the plugin GenericIE winning over built-in
-      extractors generally, or only for some URL shapes? Check with a handful of
-      mainstream sites, not just YouTube
-- [ ] Fix so the KVS override applies **only** when generic would have been
-      chosen anyway, and never shadows a named built-in extractor
-- [ ] **Add a regression test that a YouTube URL resolves to the `youtube`
-      extractor with the bundled plugins installed.** This shipped twice because
-      nothing asserts that plugins leave built-ins alone. `test:formats` and
-      friends are all offline and never load a plugin
+- [x] Culprit isolated: `kvsplayer.py`. `embedhost.py` is innocent — confirmed by
+      moving each aside in turn
+- [x] Mechanism confirmed in yt-dlp's own source, not inferred. `kvsplayer.py`
+      declared its override as `_PLUGIN_NAME`, an attribute yt-dlp never reads.
+      The real API is a **class keyword**, `plugin_name=`, which fires
+      `InfoExtractor.__init_subclass__` → sets `PLUGIN_NAME` → which is exactly
+      what `get_regular_classes()` filters on, and does
+      `setattr(sys.modules[...], 'GenericIE', cls)` so the class is swapped in
+      *in place*. Without the keyword the class is collected as a regular plugin
+      extractor, and `load_plugins` does
+      `merge_dicts(regular_classes, destination)` — **prepending** it to a
+      lookup that `extractors.py` deliberately builds "Youtube first … Generic
+      last so that it is the fallback". A `GenericIE` subclass inherits
+      `_VALID_URL = r'.*'`, so first + always suitable = nothing else is reached
+- [x] Fixed with the documented keyword. Generic goes back to being last, and
+      the debug line now reads `kvs-detection (GenericIE)` — an override —
+      instead of a bare `GenericIE`
+- [x] Guard tightened while in there: it predicted yt-dlp's flashvars lookup
+      with a looser regex than yt-dlp uses, so a page merely *mentioning* the
+      declaration switched the widening off. It now asks the question yt-dlp's
+      way. Found because the new fixture tripped it
+- [x] **`npm run test:plugins` — 13 assertions, in `npm test`.** Runs the real
+      binary against the real `resources/plugins`, copied into a temp tree next
+      to a copy of the binary (flags cannot isolate yt-dlp's plugin search).
+      Offline: extractor *selection* happens before any request succeeds, so a
+      dead proxy reveals the choice without touching the network. **7 of the 13
+      fail on the old form.**
+- [x] Verified end to end: a real YouTube download through the app's own managed
+      binary with the plugins live — 19.0s, av1 + opus, merged by the app's
+      ffmpeg
 - [ ] Ship as v0.0.13 — which also gives Linux auto-update its first real
       round-trip test
 
-> **Why this was missed:** every plugin test to date asked "does the plugin
-> extract from its target site?" and none asked "does the plugin leave the other
-> 1800 sites alone?" A plugin that overrides a *built-in* is a different risk
-> class from one that adds a new host, and only the second was being reviewed.
+> **Why this was missed, and what the test had to change.** Every plugin test
+> asked "does the plugin extract from its target site?" and none asked "does the
+> plugin leave the other 1800 alone?" The proof is in the failure output: under
+> the broken plugin the KVS fixture assertions **still pass**. The override did
+> its own job perfectly the entire time it was destroying everything else, so no
+> existing check could ever have gone red. That is why `test:plugins` asserts
+> three unrelated mainstream hosts rather than one, and why it fails rather than
+> skips when it cannot find a binary.
 
 ### 🟡 P1 — stats: probably a symptom of the above, confirm after fixing
 

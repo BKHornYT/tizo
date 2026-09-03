@@ -53,6 +53,31 @@ the stats Worker, product scope, toolchain, diagnosis, and build and release.
   platform. A component spec's `binaries` array must put exactly those names on
   disk, or setup installs a working engine and the app then reports it missing.
 
+- **A plugin that overrides a built-in extractor must pass `plugin_name=` as a
+  class keyword, or it replaces every extractor yt-dlp has.** This is the most
+  expensive trap on this list and it shipped in two releases. Without the
+  keyword, `InfoExtractor.__init_subclass__` never fires, so `PLUGIN_NAME` stays
+  unset, so the plugin loader treats the class as an ordinary *new* extractor —
+  and new extractors are **prepended** to the lookup, ahead of a list that
+  deliberately puts generic last. A subclass of `GenericIE` inherits
+  `_VALID_URL = r'.*'`, so it is then first and suitable for every URL in
+  existence and no named extractor is ever reached. The symptom points nowhere
+  near the cause: YouTube fails with `Unsupported URL:
+  https://www.youtube.com/embed/<id>` — an `/embed/` URL nobody passed in, which
+  generic found by scanning the watch page it should never have been handed.
+  Note `_PLUGIN_NAME` as an attribute is silently ignored; the keyword is
+  `class GenericIE(_GenericIE, plugin_name='kvs-detection')`. Guarded by
+  `npm run test:plugins`.
+- **A plugin test that only asks "does it extract from its target site?" cannot
+  see this class of bug.** The KVS override kept working perfectly while it was
+  destroying the other ~1745 extractors, so every existing check stayed green.
+  Overriding a built-in is a different risk class from adding a host: the
+  question to ask is whether the plugin leaves everything *else* alone.
+- **Flags cannot isolate yt-dlp's plugin search.** `--no-plugin-dirs` wins over
+  `--plugin-dirs` whatever the order, and the default search is anchored to the
+  directory holding the executable. To test the plugin files in the repo rather
+  than whatever is installed, copy the binary next to a plugin tree in a temp
+  dir — which is what `test:plugins` does.
 - **Never clear the whole plugin root to refresh bundled plugins.** Registry
   plugins live in the same directory, so wiping it on launch deletes on every
   start exactly what the registry just installed. Replace bundled packages one by
