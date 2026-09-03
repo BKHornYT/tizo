@@ -84,6 +84,12 @@ not to write that text anywhere in the file.
 app's own managed binary with the plugins live — 19.0s, av1 video + opus audio,
 merged by the app's own ffmpeg.
 
+**Released as v0.0.13.** Both CI jobs green, release public with all six
+artifacts and both update feeds. Worth noting what CI added over the local run:
+it fetches yt-dlp fresh from upstream, so the plugin suite passed 13/13 against a
+*different* binary from the one bundled here, on both Windows and Linux. The fix
+is in yt-dlp's plugin contract, not in one build's quirk.
+
 ## 2026-08-25 — Docs brought current; Gotchas split into its own file
 
 **What:** Moved all 51 Gotchas into `docs/gotchas.md` and left a grouped

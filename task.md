@@ -40,8 +40,14 @@ generic exactly like YouTube did. Shipped in v0.0.11 and v0.0.12.
 - [x] Verified end to end: a real YouTube download through the app's own managed
       binary with the plugins live — 19.0s, av1 + opus, merged by the app's
       ffmpeg
-- [ ] Ship as v0.0.13 — which also gives Linux auto-update its first real
-      round-trip test
+- [x] **Shipped as v0.0.13** (2026-09-03). Both CI jobs green; release is public,
+      not a draft, with setup, portable, zip, blockmap, AppImage and both update
+      feeds. The plugin test ran in CI on a *freshly downloaded* yt-dlp on both
+      Windows and Linux — 13/13 on each — so the fix is not specific to the
+      2026.08.19 build bundled here
+- [ ] **Linux auto-update still has not round-tripped.** v0.0.13 is the release
+      that can finally prove it: an installed 0.0.12 AppImage picking this up is
+      the test. Needs a real desktop
 
 > **Why this was missed, and what the test had to change.** Every plugin test
 > asked "does the plugin extract from its target site?" and none asked "does the
