@@ -65,6 +65,26 @@ lifetime: {}  pending: {} ← no site counts at all
 one means **no download ever completed** — there was never anything to count or
 upload. That is consistent with YouTube being the thing that was tried.
 
+> **Superseded 2026-08-25 by what is actually in the database.** A read-only
+> query while deploying the delete routes found 2 site rows / 3 downloads and 1
+> install (first seen 2026-08-21, last seen today, app 0.0.12). These are **not
+> leftover test rows**: `test-stats.ts` uploads youtube.com + vimeo.com, and
+> there is no vimeo row while there *is* a row for a site the fixture never
+> names. So real downloads completed and the whole upload path — tally, batch,
+> Worker, D1 — works end to end. That is the opposite of the conclusion above.
+>
+> What still needs explaining is the *local* file being empty while the server
+> holds counts. The likeliest cause is Clear stats having been pressed in
+> Options, which wipes the local tally and by design leaves the server totals
+> alone. Check before assuming a bug:
+>
+> - [ ] Does the packaged install's `stats.json` still read empty *now*?
+> - [ ] Complete one download and watch `lifetime` gain an entry — if it does,
+>       there was never an upload bug, only a cleared local file
+> - [ ] Note the two YouTube downloads. `site_counts` carries no timestamps, so
+>       they cannot be dated against when the plugin shipped in v0.0.11 — they
+>       neither confirm nor refute the P0 above
+
 - [ ] After the plugin fix: complete one real download, then check `lifetime`
       gets an entry and `pending` clears on the next upload
 - [ ] Separately, the dashboard has still never been signed into in a browser.
@@ -120,6 +140,28 @@ upload. That is consistent with YouTube being the thing that was tried.
 - [x] `npm run test:stats` — 15 assertions running the real stats module against
       a stub server; also run once against the live Worker, which accepted the
       real payloads and stored them correctly
+
+### Deleting data from the dashboard (2026-08-25)
+- [x] `POST /admin/delete` — scopes `site`, `sites`, `installs`, `all`
+- [x] Gated exactly like `GET`: 503 with no secrets, 401 for unsigned, forged,
+      expired or off-allow-list sessions, and all of them delete nothing
+- [x] Routed before the method checks, so no `/admin/` path can fall through to
+      the open site-counts handler and be counted as an upload
+- [x] Bulk scopes require a typed `DELETE ALL`; a single row does not
+- [x] Cross-origin `Origin` refused (the cookie is already `SameSite=Lax`)
+- [x] Dashboard UI: `×` per row, plus a Delete data panel
+- [x] `npm run test:worker` — 43 assertions running the real `worker.js` against
+      a stubbed D1, wired into `npm test`. Removing the one routing line fails 20
+- [x] **Deployed 2026-08-25** (version `5a728402`). Verified against the live
+      Worker: every delete without a session returns 401 and changes nothing, a
+      forged cookie returns 401, `GET /admin/delete` returns 405, and an
+      `/admin/` path carrying an upload-shaped body returns 401 rather than the
+      200 the open handler would have given — the fall-through guard holds in
+      production, not just in the test. Dashboard still 401s, uploads still open.
+      Row counts confirmed unchanged afterwards
+- [ ] Click the buttons once signed in (blocked on the same sign-in walk-through
+      below, which has still never been done). The gate and the routing are
+      proven live; the UI itself has only been proven by rendering it offline
 
 ### Dashboard sign-in (Google OAuth)
 - [x] `GET` gated behind Google sign-in with an email allow list; `POST /sites`

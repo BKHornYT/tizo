@@ -16,13 +16,14 @@
     "test:fetcher": "node --experimental-strip-types scripts/test-fetcher.ts",
     "test:essentials": "node --experimental-strip-types --import ./scripts/electron-stub-register.mjs scripts/test-essentials.ts",
     "test:args": "node --experimental-strip-types scripts/test-args.ts",
-    "test": "npm run typecheck && npm run test:args && npm run test:formats && npm run test:embeds && npm run test:manifest && npm run test:stats",
+    "test": "npm run typecheck && npm run test:args && npm run test:formats && npm run test:embeds && npm run test:manifest && npm run test:stats && npm run test:worker",
     "icon": "node scripts/build-icon.mjs",
     "test:formats": "node --experimental-strip-types scripts/test-formats.ts",
     "test:embeds": "node --experimental-strip-types scripts/test-embeds.ts",
     "test:stats": "node --experimental-strip-types --import ./scripts/electron-stub-register.mjs scripts/test-stats.ts",
     "dist:linux": "npm run build && electron-builder --linux",
-    "test:manifest": "node --experimental-strip-types --import ./scripts/electron-stub-register.mjs scripts/test-manifest.ts"
+    "test:manifest": "node --experimental-strip-types --import ./scripts/electron-stub-register.mjs scripts/test-manifest.ts",
+    "test:worker": "node scripts/test-worker.mjs"
   },
   "dependencies": {
     "electron-updater": "6.8.9",

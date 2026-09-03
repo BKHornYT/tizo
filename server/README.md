@@ -89,13 +89,54 @@ curl -H 'accept: application/json' https://tizo-stats.itemhunt-analytics.workers
 # { "installs": 412, "downloads": 9377, "sites": [ … ], "email": "you@example.com" }
 ```
 
+### Deleting data
+
+The dashboard can delete what it shows. Each site row has a `×`, and a *Delete
+data* panel at the bottom clears the site table, the install table, or both.
+
+The same routes are scriptable — a signed-in session cookie, or nothing at all
+from curl if you would rather use `wrangler d1 execute`:
+
+```bash
+POST /admin/delete  { "scope": "site",     "domain": "example.com" }
+POST /admin/delete  { "scope": "sites",    "confirm": "DELETE ALL" }
+POST /admin/delete  { "scope": "installs", "confirm": "DELETE ALL" }
+POST /admin/delete  { "scope": "all",      "confirm": "DELETE ALL" }
+# → { "ok": true, "scope": "sites", "deleted": 42 }
+```
+
+**Gated exactly like `GET`, and for the same reason** — this is the operator
+acting, not the app. Missing secrets return 503, an unsigned or expired or
+forged cookie returns 401, and an address off the allow list returns 401. All of
+them delete nothing.
+
+Three things about this are load-bearing:
+
+- **`/admin/*` is routed before the method checks.** Every POST whose path is
+  not `/install` falls through to the open site-counts handler, so an admin path
+  that missed its own branch would be *counted as an upload* rather than
+  rejected. `npm run test:worker` asserts it never is.
+- **Bulk deletes require the exact phrase `DELETE ALL`.** These tables hold
+  running sums, not submissions — there is no history to rebuild a wiped total
+  from, so the phrase is the only thing standing between a mis-click and
+  permanent loss. Deleting a single site row does not need it: that site simply
+  starts counting from zero again.
+- **Clearing installs forgets machines, it does not remove them.** Every install
+  still running reappears on its next ping and the count climbs back. Worth
+  knowing before reading the recovery as a failed delete.
+
+Cross-origin requests are refused outright. The session cookie is `SameSite=Lax`
+so a cross-site form never carries it anyway, but the `Origin` check is one
+comparison and curl sends no `Origin` at all, so scripting is unaffected.
+
 ### Who can see it
 
-**`GET` is gated. The two `POST` routes are not, and must never be.** The app has
-no account and must never have one: shipping a credential would put a shared
-secret in every copy *and* give the server a way to tell submissions apart, which
-is the exact linkability this whole design exists to avoid. So sign-in protects
-the dashboard only.
+**`GET` and `/admin/*` are gated. The two upload routes are not, and must never
+be.** The app has no account and must never have one: shipping a credential would
+put a shared secret in every copy *and* give the server a way to tell submissions
+apart, which is the exact linkability this whole design exists to avoid. So
+sign-in protects what the operator does — reading the numbers and deleting them —
+and never what the app does.
 
 Sign-in is Google OAuth implemented inside the Worker — Cloudflare Access cannot
 be applied to a `*.workers.dev` hostname, and this needs no domain.

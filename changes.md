@@ -11,6 +11,98 @@ Newest first. One entry per change, using this format:
 
 ---
 
+## 2026-08-25 — Docs brought current; Gotchas split into its own file
+
+**What:** Moved all 51 Gotchas into `docs/gotchas.md` and left a grouped
+one-line-per-entry index in `CLAUDE.md`, which drops from 46.8 KB to 33.7 KB.
+Also fixed what had gone stale elsewhere: `docs/plan.md` still described the
+Worker as "not deployed" and its route table predated both the sign-in gate and
+the delete routes; `docs/releasing.md` still described a Windows-only, three-
+artifact, one-feed release and summarised `npm test` as "the argument-builder
+assertions".
+
+**Why:** `CLAUDE.md` loads on every session, so its length is a cost paid every
+run, and it was within 3 KB of the 50 KB budget. The stale docs are the worse
+problem though — `plan.md` saying the Worker is undeployed is exactly the kind of
+thing a future session acts on.
+
+**Files:** CLAUDE.md, docs/gotchas.md, docs/plan.md, docs/releasing.md, changes.md
+
+**An index, not a pointer.** The obvious move — replace the section with one line
+saying "see docs/gotchas.md" — would have been wrong. Gotchas earn their place in
+the always-loaded file precisely because you need to be warned *before* you go
+looking, and nobody opens a traps file to check whether a trap exists. One line
+per entry keeps that property at about a quarter of the bytes; the detail, which
+is where each symptom is described, lives in the split-out file.
+
+**The release facts were checked, not remembered.** The artifact list came from
+`gh release view v0.0.12`, which is how the table now says `x86_64.AppImage`
+rather than the plausible-looking `-x64.AppImage` the builder config reads like
+it would produce, and how `latest-linux.yml` and the setup blockmap got into a
+list that had never mentioned either.
+
+## 2026-08-25 — Delete data from the stats dashboard
+
+**What:** Added `POST /admin/delete` to the stats Worker and delete controls to
+the dashboard. Four scopes: one site row, the whole site table, the install
+table, or both. Each row in the table gets a `×`; a *Delete data* panel below it
+holds the three bulk buttons. Wrote `scripts/test-worker.mjs` — 43 offline
+assertions that run the real `server/worker.js` against a stubbed D1 — and wired
+it into `npm test`.
+
+**Why:** Clearing test rows meant hand-writing `wrangler d1 execute` against
+production SQL, which is both awkward and the kind of thing that deletes the
+wrong table at the wrong moment.
+
+**Files:** server/worker.js, server/README.md, scripts/test-worker.mjs,
+package.json, CLAUDE.md, task.md, changes.md
+
+**Gated like the dashboard, not like the uploads.** Deleting is the operator
+acting, so it sits behind the same Google sign-in as `GET`: 503 with no secrets
+configured, 401 for an unsigned, forged, expired or off-allow-list session, and
+every one of those paths deletes nothing. `POST /sites` and `POST /install` stay
+open and unauthenticated — asserted in the test, because the day the app needs a
+credential is the day the two-stream guarantee is gone.
+
+**The trap this had to avoid.** Every POST whose path is not `/install` falls
+through to the open site-counts handler. A gated route that missed its own branch
+would therefore not 404 — its body would be read as an anonymous upload and
+written to the database. `/admin/` is matched at the top of `fetch` alongside
+`/auth/`, and the test asserts an `/admin/` request is never counted as an
+upload. Deleting that single routing line fails 20 of the 43 assertions,
+including that one, so it was verified by mutation rather than by reading.
+
+**Bulk deletes demand a typed `DELETE ALL`.** The tables hold running sums with
+no per-submission history, so there is nothing anywhere to rebuild a wiped total
+from — friction is the only protection available. A single site row is exempt on
+purpose: that site just starts counting from zero again.
+
+**Two smaller things, both now in Gotchas.** Clearing installs *forgets* machines
+rather than removing them — each one reappears on its next ping, which reads as a
+failed delete unless the UI says so, so it does. And the dashboard's inline
+`<script>` is built inside a template literal, so its own escapes need doubling:
+`\n` collapsed into a real newline mid-string and served a page that died with
+"Invalid or unexpected token" while the server reported a clean 200. Caught by
+compiling the served script in the test, which is now a permanent assertion.
+
+**Deployed** the same day, version `5a728402`, and probed live rather than
+assumed: deletes without a session 401 and change nothing, a forged cookie 401s,
+`GET /admin/delete` 405s, the dashboard still 401s and both upload routes still
+answer unauthenticated. The one worth doing against production specifically —
+an `/admin/` path carrying an upload-shaped body — returned 401 rather than the
+200 the open handler would have produced, so the fall-through guard holds in the
+deployed Worker and not only in the test. Row counts were re-read afterwards and
+were unchanged.
+
+**A side finding, recorded in task.md.** The read-only check turned up 2 site
+rows / 3 downloads and 1 install rather than the empty database the open P1
+assumed. They are not test rows — the fixture uploads two named domains and only
+one of them could match, while the other row is a site the fixture never
+mentions. So real downloads completed and the entire upload path works end to
+end, which reverses that P1's conclusion; what is left to explain is only why the
+*local* tally is empty, and Clear stats having been pressed would account for it
+without any bug at all.
+
 ## 2026-08-24 - v0.0.12: Linux
 
 **What:** First release that builds for Linux. Ships the AppImage alongside the

@@ -32,7 +32,7 @@ function html(data) {
   const rows = data.sites
     .map(
       (s, i) =>
-        `<tr><td class="n">${i + 1}</td><td>${escapeHtml(s.domain)}</td><td class="v">${s.downloads.toLocaleString()}</td></tr>`
+        `<tr data-domain="${escapeHtml(s.domain)}"><td class="n">${i + 1}</td><td>${escapeHtml(s.domain)}</td><td class="v">${s.downloads.toLocaleString()}</td><td class="x"><button class="del" title="Delete this row" aria-label="Delete ${escapeHtml(s.domain)}">&times;</button></td></tr>`
     )
     .join('')
 
@@ -58,6 +58,18 @@ td.n{color:#6f7595;width:2.5rem;font-variant-numeric:tabular-nums}
 td.v{text-align:right;font-variant-numeric:tabular-nums;color:#b95ce4;font-weight:600}
 footer{margin-top:2.5rem;color:#6f7595;font-size:.75rem;line-height:1.7}
 code{background:#ffffff12;padding:.1rem .35rem;border-radius:.25rem}
+td.x{width:2rem;text-align:right}
+button.del{background:none;border:0;color:#6f7595;font-size:1.1rem;line-height:1;
+  cursor:pointer;padding:.1rem .35rem;border-radius:.3rem}
+button.del:hover{background:#e4485c22;color:#f07584}
+section.danger{margin-top:2.5rem;padding:1.25rem;border:1px solid #e4485c44;
+  border-radius:.75rem;background:#e4485c0d}
+section.danger h2{margin:0 0 .4rem;font-size:.95rem;color:#f07584}
+section.danger p{margin:0 0 1rem;color:#9aa0bd;font-size:.8rem;max-width:34rem}
+section.danger button{background:#2b2036;border:1px solid #e4485c55;color:#f0a5ad;
+  padding:.45rem .9rem;border-radius:.5rem;font:inherit;font-size:.82rem;
+  cursor:pointer;margin:0 .4rem .4rem 0}
+section.danger button:hover{background:#e4485c22;color:#fff}
 </style>
 <main>
 <h1>Tizo usage</h1>
@@ -67,7 +79,7 @@ code{background:#ffffff12;padding:.1rem .35rem;border-radius:.25rem}
   <div class="card"><b>${data.downloads.toLocaleString()}</b><span>downloads counted</span></div>
   <div class="card"><b>${data.sites.length.toLocaleString()}</b><span>sites seen</span></div>
 </div>
-${rows ? `<table><tr><th></th><th>Site</th><th style="text-align:right">Downloads</th></tr>${rows}</table>` : '<p style="color:#9aa0bd">Nothing reported yet.</p>'}
+${rows ? `<table><tr><th></th><th>Site</th><th style="text-align:right">Downloads</th><th></th></tr>${rows}</table>` : '<p style="color:#9aa0bd">Nothing reported yet.</p>'}
 <footer>
 Two streams that share no key: site counts carry no identifier, and the install
 ping carries no site data. Separate tables, no join, no IP logging — so these
@@ -75,6 +87,54 @@ numbers show <em>how many machines</em> and <em>which sites are popular</em>, an
 cannot show what any one machine downloaded.<br>
 Raw JSON: <code>?.json</code> or send <code>Accept: application/json</code>.
 </footer>
+<section class="danger">
+<h2>Delete data</h2>
+<p>These are running sums with no per-submission history behind them, so there is
+nothing to rebuild a deleted total from. Clearing installs forgets the machines
+counted so far; it does not stop them &mdash; each one reappears on its next ping.</p>
+<button data-scope="sites" data-warn="Delete every site row and every download total.">Clear site counts</button>
+<button data-scope="installs" data-warn="Delete every install row. The count drops to zero, then climbs again as installs ping.">Clear installs</button>
+<button data-scope="all" data-warn="Delete every site row AND every install row.">Clear everything</button>
+</section>
+<script>
+/* This script is inside a template literal, so every escape it needs for its
+   OWN strings has to survive one round of interpretation first: \\n here is
+   what reaches the browser as \n. Writing \n collapses to a real newline and
+   the served page dies with "Invalid or unexpected token". */
+const PHRASE = 'DELETE ALL'
+async function del(payload) {
+  let out = {}
+  try {
+    const r = await fetch('/admin/delete', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    out = await r.json().catch(() => ({}))
+    if (!r.ok || !out.ok) throw new Error(out.error || ('HTTP ' + r.status))
+  } catch (e) {
+    alert('Nothing was deleted: ' + e.message)
+    return
+  }
+  location.reload()
+}
+document.addEventListener('click', (e) => {
+  const row = e.target.closest('button.del')
+  if (row) {
+    const domain = row.closest('tr').dataset.domain
+    if (confirm('Delete the counts for ' + domain + '?\\n\\nThe row and its running total go with it. This cannot be undone.')) {
+      del({ scope: 'site', domain })
+    }
+    return
+  }
+  const bulk = e.target.closest('button[data-scope]')
+  if (!bulk) return
+  const typed = prompt(bulk.dataset.warn + '\\n\\nThis cannot be undone. Type ' + PHRASE + ' to confirm.')
+  if (typed === null) return
+  if (typed.trim() !== PHRASE) return alert('Not deleted \u2014 the phrase did not match.')
+  del({ scope: bulk.dataset.scope, confirm: PHRASE })
+})
+</script>
 </main>`,
     { headers: { 'content-type': 'text/html; charset=utf-8' } }
   )
@@ -299,6 +359,101 @@ async function handleAuth(request, path, config) {
   return new Response(null, { status: 302, headers })
 }
 
+/* ------------------------------------------------------------------ *
+ * Deleting data.
+ *
+ * Gated exactly like the dashboard, and for the same reason: this is the
+ * operator acting, not the app. `POST /sites` and `POST /install` stay open —
+ * see the note above — so the admin routes are matched BEFORE the method
+ * checks below. A path under /admin/ that fell through would land in the open
+ * site-counts handler and be read as an upload.
+ * ------------------------------------------------------------------ */
+
+const DELETE_PHRASE = 'DELETE ALL'
+
+/** D1 reports affected rows in `meta.changes`. */
+function changed(result) {
+  return result?.meta?.changes ?? 0
+}
+
+/** A signed session whose email is still on the allow list, or null. */
+async function operator(request, config) {
+  const session = await readSession(config.session, cookie(request, SESSION_COOKIE))
+  if (!session) return null
+  return config.allowed.includes(String(session.email).toLowerCase()) ? session : null
+}
+
+async function handleAdmin(request, path, config, env) {
+  // Fails closed with the dashboard: no secrets means no operator, so there is
+  // nobody who could be allowed to delete anything.
+  if (!config) return json({ error: 'sign-in is not configured' }, 503, false)
+  if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405, false)
+
+  // The session cookie is SameSite=Lax, so a cross-site form never carries it
+  // and this can only fail closed twice. Kept because it is one comparison, and
+  // because curl sends no Origin at all — scripting still works.
+  if (request.headers.get('origin') && request.headers.get('origin') !== new URL(request.url).origin) {
+    return json({ error: 'cross-origin request refused' }, 403, false)
+  }
+
+  if (!(await operator(request, config))) return json({ error: 'sign in required' }, 401, false)
+  if (!path.endsWith('/admin/delete')) return json({ error: 'not found' }, 404, false)
+
+  let body
+  try {
+    body = await request.json()
+  } catch {
+    return json({ error: 'bad json' }, 400, false)
+  }
+  const scope = body?.scope
+
+  // One row. Reversible in the sense that the site simply starts counting from
+  // zero again, so this is the only delete that does not demand the phrase.
+  if (scope === 'site') {
+    const domain = typeof body.domain === 'string' ? body.domain.trim().toLowerCase() : ''
+    if (!domain || domain.length > 253 || !DOMAIN_RE.test(domain)) {
+      return json({ error: 'bad domain' }, 400, false)
+    }
+    const res = await env.DB.prepare('DELETE FROM site_counts WHERE domain = ?').bind(domain).run()
+    return json({ ok: true, scope, domain, deleted: changed(res) }, 200, false)
+  }
+
+  // Everything below throws away totals that nothing can rebuild — the tables
+  // hold sums, not submissions. A typed phrase is the cost of that being final.
+  if (body?.confirm !== DELETE_PHRASE) {
+    return json({ error: 'confirm must be exactly "' + DELETE_PHRASE + '"' }, 400, false)
+  }
+
+  if (scope === 'sites') {
+    return json(
+      { ok: true, scope, deleted: changed(await env.DB.prepare('DELETE FROM site_counts').run()) },
+      200,
+      false
+    )
+  }
+
+  // Forgets the machines counted so far. It does not stop them: every install
+  // that is still running reappears on its next ping, which is worth saying out
+  // loud because the count climbing back looks like the delete failed.
+  if (scope === 'installs') {
+    return json(
+      { ok: true, scope, deleted: changed(await env.DB.prepare('DELETE FROM installs').run()) },
+      200,
+      false
+    )
+  }
+
+  if (scope === 'all') {
+    const [sites, installs] = await env.DB.batch([
+      env.DB.prepare('DELETE FROM site_counts'),
+      env.DB.prepare('DELETE FROM installs')
+    ])
+    return json({ ok: true, scope, deleted: changed(sites) + changed(installs) }, 200, false)
+  }
+
+  return json({ error: 'unknown scope' }, 400, false)
+}
+
 export default {
   async fetch(request, env) {
     if (request.method === 'OPTIONS') return new Response(null, { headers: CORS })
@@ -312,16 +467,20 @@ export default {
       return handleAuth(request, path, config)
     }
 
+    // Before the method checks, so nothing under /admin/ can reach the open
+    // upload handler at the bottom of this function.
+    if (path.includes('/admin/')) return handleAdmin(request, path, config, env)
+
     if (request.method === 'GET') {
       // Fail closed. A missing secret means nobody sees the numbers — the
       // failure worth guarding against is a deploy that silently reverts to
       // public.
       if (!config) return json({ error: 'dashboard sign-in is not configured' }, 503, false)
 
-      const session = await readSession(config.session, cookie(request, SESSION_COOKIE))
       // Re-checked against the allow list on every request, so removing someone
       // takes effect immediately rather than whenever their cookie expires.
-      if (!session || !config.allowed.includes(String(session.email).toLowerCase())) {
+      const session = await operator(request, config)
+      if (!session) {
         if (!(request.headers.get('accept') ?? '').includes('text/html')) {
           return json({ error: 'sign in required' }, 401, false)
         }

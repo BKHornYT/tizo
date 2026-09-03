@@ -43,7 +43,7 @@ tizo/
 │   ├─ views/             Queue (the main screen), SettingsView
 │   ├─ components/        QueueRow, PlaylistPicker
 │   └─ strings.ts         ALL user-visible copy
-├─ server/                Cloudflare Worker for usage counts (not deployed)
+├─ server/                Cloudflare Worker for usage counts — live since 2026-08-21
 └─ build/                 icon.ico + iconsrc, NSIS and portable config
 ```
 
@@ -209,15 +209,27 @@ The design constraint is that counting machines requires an identifier while a
 privacy-respecting tally must not have one. Both are satisfied by splitting into
 **two streams that share no key**:
 
-| Route | Carries | Never carries |
-|---|---|---|
-| `POST /sites` | `{domain: count}`, app version | any identifier |
-| `POST /install` | random UUID, app version | any site data |
+| Route | Carries | Never carries | Gated |
+|---|---|---|---|
+| `POST /sites` | `{domain: count}`, app version | any identifier | no, and never |
+| `POST /install` | random UUID, app version | any site data | no, and never |
+| `GET /` | the dashboard | — | Google sign-in |
+| `POST /admin/delete` | a scope, and a phrase for bulk | — | Google sign-in |
 
 Separate tables, no foreign key, no IP logging. The server can answer *how many
 machines* and *which sites are popular*; it cannot answer *what does this machine
 download*. Adding the install id to a site row, or turning on Cloudflare Logpush,
-destroys that property — do neither. Full detail in
+destroys that property — do neither.
+
+The gating splits on **who is acting, not on what the method is**: everything the
+app does is open, everything the operator does needs sign-in. Requiring a
+credential to upload would ship a shared secret in every copy *and* let the
+server tell submitters apart, which is the same linkability the two streams
+exist to prevent.
+
+One structural trap lives here: a POST to any path other than `/install` falls
+through to the site-counts handler, so **every new route must be matched before
+the method checks** or its body gets counted as an upload. Full detail in
 [../server/README.md](../server/README.md).
 
 ## When a site "does not work"

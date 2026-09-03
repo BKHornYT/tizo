@@ -1,13 +1,18 @@
 # Releasing
 
-Every release publishes the same three artifacts plus the update feed:
+Every release publishes the same artifacts plus the update feed:
 
 | File | Who it is for |
 |---|---|
 | `tizo-<version>-setup.exe` | Most people. Per-user NSIS install, no admin prompt |
 | `tizo-<version>-portable.exe` | USB sticks and locked-down machines. No install |
 | `tizo-<version>-x64.zip` | Manual extract |
-| `latest.yml` | **Not optional.** electron-updater reads this to find updates |
+| `tizo-<version>-x86_64.AppImage` | Linux. The only Linux target — see the AppImage decision in CLAUDE.md |
+| `latest.yml` | **Not optional.** electron-updater reads this to find Windows updates |
+| `latest-linux.yml` | The same thing for Linux. A separate feed — Windows's does not cover it |
+
+electron-builder also uploads `tizo-<version>-setup.exe.blockmap`, which is what
+lets an update download only the changed parts of the installer.
 
 `latest.yml` is the one that is easy to forget and breaks everything quietly: without
 it in the release, every installed copy simply stops finding updates, with no error
@@ -28,9 +33,10 @@ git tag v0.1.0
 git push && git push --tags
 ```
 
-`.github/workflows/release.yml` then builds on `windows-latest`, refuses to continue
-if the tag and `package.json` disagree, runs `npm test`, and publishes all four files
-to a GitHub release.
+`.github/workflows/release.yml` then runs two jobs — `windows-latest` for the
+installer, portable exe and zip, `ubuntu-latest` for the AppImage. Each refuses to
+continue if the tag and `package.json` disagree, runs `npm test`, and publishes to
+the same GitHub release.
 
 **Why the version check exists:** electron-updater compares the version *inside* the
 artifacts, not the tag on the release. A release tagged `v0.2.0` containing a 0.1.0
@@ -40,7 +46,8 @@ instead.
 ## Building locally
 
 ```bash
-npm run dist        # all three targets into dist/
+npm run dist        # the three Windows targets into dist/
+npm run dist:linux  # the AppImage — needs a Linux host; CI does this on ubuntu-latest
 npm run dist:dir    # unpacked only — much faster for a smoke test
 ```
 
@@ -49,7 +56,10 @@ Local builds do not publish. To publish from a machine, set `GH_TOKEN` and add
 
 ## What to check before tagging
 
-- `npm test` passes (typecheck plus the argument-builder assertions)
+- `npm test` passes — typecheck plus the offline assertions: args, formats,
+  embeds, manifest, stats and the stats Worker. CI runs it in both jobs
+- If the component registry changed, prove it against the real published assets
+  *before* pushing: `TIZO_MANIFEST_URL=./components.json npm run test:essentials`
 - The installer runs on a machine that has never had Tizo: terms → Essentials
   download → a real download completes
 - The portable exe keeps its `tizo-data/` folder beside itself, and shows an update
