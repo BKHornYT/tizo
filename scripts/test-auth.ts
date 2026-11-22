@@ -44,6 +44,18 @@ ok('a marked playlist entry still maps to its site', siteKeyOf('https://x.com/a/
 ok('an IP address is not a site', siteKeyOf('http://192.168.1.10/x') === null)
 ok('a single label is not a site', siteKeyOf('localhost') === null)
 ok('garbage is not a site', siteKeyOf('not a url at all') === null)
+
+// The dialog asks only for a site's `fields`. If those did not include a login
+// marker, a correctly filled form would be refused as "not a login".
+ok(
+  'every site with boxes asks for its login cookie',
+  KNOWN_SITES.filter((k) => k.fields).every((k) => k.fields!.some((f) => k.markers.includes(f)))
+)
+ok('X asks for exactly auth_token and ct0', KNOWN_SITES.find((k) => k.site === 'x.com')?.fields?.join() === 'auth_token,ct0')
+ok(
+  'the two X boxes, joined the way the dialog joins them, are a login',
+  looksSignedIn('x.com', fromPasted('auth_token=79b18dd33a21; ct0=d245ce991964', 'x.com')) === true
+)
 // A look-alike must never borrow a real site's session.
 ok('x.com.evil.example is not x.com', siteKeyOf('https://x.com.evil.example/') === 'evil.example')
 ok('evilx.com is not x.com', siteKeyOf('https://evilx.com/') === 'evilx.com')

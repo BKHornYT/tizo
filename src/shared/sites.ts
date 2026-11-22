@@ -32,22 +32,30 @@ export interface KnownSite {
    * enough, because sites rename these from time to time.
    */
   markers: string[]
+  /**
+   * The cookies to ask for by name in the sign-in dialog, one box each, copied
+   * from F12 → Application → Cookies. Only listed where they are known to be
+   * enough for yt-dlp; other sites get one paste box instead.
+   */
+  fields?: string[]
 }
 
 export const KNOWN_SITES: KnownSite[] = [
-  { site: 'x.com', label: 'X (Twitter)', loginUrl: 'https://x.com/i/flow/login', markers: ['auth_token'] },
+  { site: 'x.com', label: 'X (Twitter)', loginUrl: 'https://x.com/i/flow/login', markers: ['auth_token'], fields: ['auth_token', 'ct0'] },
   {
     site: 'instagram.com',
     label: 'Instagram',
     loginUrl: 'https://www.instagram.com/accounts/login/',
-    markers: ['sessionid']
+    markers: ['sessionid'],
+    fields: ['sessionid']
   },
-  { site: 'facebook.com', label: 'Facebook', loginUrl: 'https://www.facebook.com/login/', markers: ['c_user'] },
+  { site: 'facebook.com', label: 'Facebook', loginUrl: 'https://www.facebook.com/login/', markers: ['c_user'], fields: ['c_user', 'xs'] },
   {
     site: 'tiktok.com',
     label: 'TikTok',
     loginUrl: 'https://www.tiktok.com/login',
-    markers: ['sessionid', 'sessionid_ss']
+    markers: ['sessionid', 'sessionid_ss'],
+    fields: ['sessionid']
   },
   {
     site: 'youtube.com',

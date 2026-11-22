@@ -1,22 +1,27 @@
 import { useEffect, useRef, useState } from 'react'
 import type { SignInResult } from '../../../shared/types'
+import { knownSite } from '../../../shared/sites'
 import { strings } from '../strings'
 
 type Phase =
   | { kind: 'loading' }
   | { kind: 'unavailable' }
   | { kind: 'notice' }
+  /** The main screen: paste the login cookies (or choose the login page). */
+  | { kind: 'form' }
+  /** The login page is open in its own window. */
   | { kind: 'waiting' }
-  /** Paste cookies copied from the user's own browser (no extension needed). */
-  | { kind: 'paste' }
   | { kind: 'result'; result: SignInResult }
 
 /**
- * Walks through one sign-in: the one-time notice, then the separate sign-in
- * window (which the main process opens and owns), then the outcome.
+ * Adds a login for one site. Opens on a plain form, one box per cookie the site
+ * needs (X: auth_token and ct0), copied from the browser's F12 → Application →
+ * Cookies. Opening the site's own login page in a window is an option, never
+ * automatic (owner, 2026-11-22: Google sign-in inside the window was unreliable
+ * and opening it unasked was unwelcome).
  *
- * The page the user signs in to never renders in this window. It sits in its
- * own sandboxed window; this dialog only holds the Done / Cancel buttons.
+ * The login page never renders in this window; it sits in its own sandboxed
+ * window, and this dialog only holds the Done / Back buttons for it.
  */
 export default function SignInDialog({
   site,
@@ -25,70 +30,73 @@ export default function SignInDialog({
   site: string
   onClose: (changed: boolean) => void
 }): React.JSX.Element {
+  const fields = knownSite(site)?.fields ?? []
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' })
-  const started = useRef(false)
-  // Set once the user switches from the window to pasting or a file, so the
-  // window's own "cancelled" result does not close the dialog underneath.
-  const importing = useRef(false)
+  const [values, setValues] = useState<Record<string, string>>({})
   const [pasted, setPasted] = useState('')
-
-  const begin = (): void => {
-    if (started.current) return
-    started.current = true
-    setPhase({ kind: 'waiting' })
-    void window.tizo.auth.signIn(site).then((result) => {
-      if (!importing.current) setPhase({ kind: 'result', result })
-    })
-  }
-
-  /** Closes the sign-in window (keeping nothing) and shows the paste box. */
-  const pasteInstead = (): void => {
-    importing.current = true
-    void window.tizo.auth.cancel()
-    setPhase({ kind: 'paste' })
-  }
-
-  const usePasted = (): void => {
-    void window.tizo.auth.importText(site, pasted).then((result) => setPhase({ kind: 'result', result }))
-  }
-
-  const importFile = (): void => {
-    void window.tizo.auth.importFile(site).then((result) => {
-      // Picker closed without a file: stay on the paste box.
-      if (!result.ok && result.reason === 'cancelled') return
-      setPhase({ kind: 'result', result })
-    })
-  }
+  // Guards against a second window while one is already open.
+  const windowOpen = useRef(false)
 
   useEffect(() => {
     void window.tizo.auth.state().then((state) => {
       if (!state.available) setPhase({ kind: 'unavailable' })
       else if (!state.noticeSeen) setPhase({ kind: 'notice' })
-      else begin()
+      else setPhase({ kind: 'form' })
     })
-    // Run once per dialog; `begin` guards against a second window itself.
   }, [])
 
-  // A cancel needs no message of its own; the user asked for it.
-  const cancelled = phase.kind === 'result' && !phase.result.ok && phase.result.reason === 'cancelled'
-  useEffect(() => {
-    if (cancelled) onClose(false)
-  }, [cancelled])
+  const openLoginPage = (): void => {
+    if (windowOpen.current) return
+    windowOpen.current = true
+    setPhase({ kind: 'waiting' })
+    void window.tizo.auth.signIn(site).then((result) => {
+      windowOpen.current = false
+      // Closing the window with Back goes back to the form, not out.
+      if (!result.ok && result.reason === 'cancelled') setPhase({ kind: 'form' })
+      else setPhase({ kind: 'result', result })
+    })
+  }
+
+  // Cookie values copied from F12 sometimes carry quotes or spaces around them.
+  const clean = (v: string): string => v.trim().replace(/^"(.*)"$/, '$1')
+  const text =
+    fields.length > 0
+      ? fields
+          .map((f) => [f, clean(values[f] ?? '')] as const)
+          .filter(([, v]) => v)
+          .map(([f, v]) => `${f}=${v}`)
+          .join('; ')
+      : pasted
+  const ready = fields.length > 0 ? fields.every((f) => clean(values[f] ?? '')) : pasted.trim() !== ''
+
+  const save = (): void => {
+    void window.tizo.auth.importText(site, text).then((result) => setPhase({ kind: 'result', result }))
+  }
+
+  const loadFile = (): void => {
+    void window.tizo.auth.importFile(site).then((result) => {
+      if (!result.ok && result.reason === 'cancelled') return
+      setPhase({ kind: 'result', result })
+    })
+  }
 
   const changed = phase.kind === 'result' && phase.result.ok
 
-  let title: string = strings.signIn.waitingTitle(site)
+  let title: string = strings.signIn.formTitle(site)
   let body: React.ReactNode = null
   let buttons: React.ReactNode = null
 
   const primary =
-    'rounded-md bg-brand-500 px-4 py-2 text-xs font-medium text-white transition hover:bg-brand-400'
+    'rounded-md bg-brand-500 px-4 py-2 text-xs font-medium text-white transition hover:bg-brand-400 disabled:opacity-40'
   const secondary = 'rounded-md bg-ink-900/8 px-4 py-2 text-xs text-ink-700 transition hover:bg-ink-900/15'
+  const input =
+    'w-full rounded-md border border-surface-line bg-white px-2.5 py-1.5 font-mono text-xs text-ink-900 outline-none focus:border-brand-500'
 
   switch (phase.kind) {
     case 'loading':
       body = <p className="text-sm text-ink-500">…</p>
       break
+
     case 'unavailable':
       body = <p className="text-sm leading-relaxed text-ink-700">{strings.signIn.unavailable}</p>
       buttons = (
@@ -97,6 +105,7 @@ export default function SignInDialog({
         </button>
       )
       break
+
     case 'notice':
       title = strings.signIn.noticeTitle
       body = strings.signIn.notice.map((p, i) => (
@@ -110,7 +119,7 @@ export default function SignInDialog({
             {strings.signIn.cancel}
           </button>
           <button
-            onClick={() => void window.tizo.auth.ackNotice().then(begin)}
+            onClick={() => void window.tizo.auth.ackNotice().then(() => setPhase({ kind: 'form' }))}
             className={primary}
           >
             {strings.signIn.noticeOk}
@@ -118,62 +127,73 @@ export default function SignInDialog({
         </>
       )
       break
-    case 'paste':
-      title = strings.signIn.pasteTitle(site)
+
+    case 'form':
       body = (
         <>
-          <ol className="list-decimal space-y-1 pl-5 text-[13px] leading-relaxed text-ink-700">
-            {strings.signIn.pasteSteps(site).map((step, i) => (
-              <li key={i}>{step}</li>
-            ))}
-          </ol>
-          <textarea
-            autoFocus
-            value={pasted}
-            onChange={(e) => setPasted(e.target.value)}
-            placeholder={strings.signIn.pastePlaceholder}
-            spellCheck={false}
-            className="mt-3 h-24 w-full resize-none rounded-md border border-surface-line bg-white p-2 font-mono text-[11px] text-ink-900 outline-none focus:border-brand-500"
-          />
-          {site === 'x.com' && (
-            <p className="mt-1.5 text-[11px] leading-relaxed text-ink-500">{strings.signIn.pasteXHint}</p>
+          <p className="text-[13px] leading-relaxed text-ink-700">
+            {fields.length > 0 ? strings.signIn.whereFields(site) : strings.signIn.wherePaste(site)}
+          </p>
+
+          {fields.length > 0 ? (
+            <div className="mt-3 flex flex-col gap-2.5">
+              {fields.map((f, i) => (
+                <label key={f} className="flex flex-col gap-1">
+                  <span className="text-xs font-medium text-ink-700">{strings.signIn.fieldLabel(f)}</span>
+                  <input
+                    autoFocus={i === 0}
+                    value={values[f] ?? ''}
+                    onChange={(e) => setValues({ ...values, [f]: e.target.value })}
+                    spellCheck={false}
+                    autoComplete="off"
+                    className={input}
+                  />
+                </label>
+              ))}
+            </div>
+          ) : (
+            <textarea
+              autoFocus
+              value={pasted}
+              onChange={(e) => setPasted(e.target.value)}
+              placeholder="name=value; name2=value2"
+              spellCheck={false}
+              className={`${input} mt-3 h-20 resize-none`}
+            />
           )}
-          <p className="mt-1.5 text-[11px] leading-relaxed text-ink-500">{strings.signIn.pasteNote}</p>
-        </>
-      )
-      buttons = (
-        <>
-          <button onClick={importFile} className={`${secondary} mr-auto`}>
-            {strings.signIn.loadFile}
-          </button>
-          <button onClick={() => onClose(false)} className={secondary}>
-            {strings.signIn.cancel}
-          </button>
-          <button onClick={usePasted} disabled={!pasted.trim()} className={`${primary} disabled:opacity-40`}>
-            {strings.signIn.pasteButton}
-          </button>
-        </>
-      )
-      break
-    case 'waiting':
-      body = (
-        <>
-          <p className="text-sm leading-relaxed text-ink-700">{strings.signIn.waiting}</p>
-          <div className="mt-4 rounded-lg bg-ink-900/5 px-3 py-2.5">
-            <p className="text-xs leading-relaxed text-ink-700">{strings.signIn.pasteOffer}</p>
-            <button
-              onClick={pasteInstead}
-              className="mt-2 rounded-md bg-ink-900/8 px-3 py-1.5 text-xs text-ink-700 transition hover:bg-ink-900/15"
-            >
-              {strings.signIn.pasteInstead}
+
+          <p className="mt-3 text-[11px] leading-relaxed text-ink-500">{strings.signIn.pasteNote}</p>
+
+          <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-surface-line pt-3 text-xs">
+            <span className="text-ink-500">{strings.signIn.orLabel}</span>
+            <button onClick={openLoginPage} className="text-brand-500 hover:underline">
+              {strings.signIn.openLoginPage(site)}
+            </button>
+            <button onClick={loadFile} className="text-brand-500 hover:underline">
+              {strings.signIn.loadFile}
             </button>
           </div>
         </>
       )
       buttons = (
         <>
-          <button onClick={() => void window.tizo.auth.cancel()} className={secondary}>
+          <button onClick={() => onClose(false)} className={secondary}>
             {strings.signIn.cancel}
+          </button>
+          <button onClick={save} disabled={!ready} className={primary}>
+            {strings.signIn.save}
+          </button>
+        </>
+      )
+      break
+
+    case 'waiting':
+      title = strings.signIn.waitingTitle(site)
+      body = <p className="text-sm leading-relaxed text-ink-700">{strings.signIn.waiting}</p>
+      buttons = (
+        <>
+          <button onClick={() => void window.tizo.auth.cancel()} className={secondary}>
+            {strings.signIn.back}
           </button>
           <button onClick={() => void window.tizo.auth.finish()} className={primary}>
             {strings.signIn.done}
@@ -181,6 +201,7 @@ export default function SignInDialog({
         </>
       )
       break
+
     case 'result': {
       const r = phase.result
       const message = r.ok
@@ -190,21 +211,19 @@ export default function SignInDialog({
             ? strings.signIn.success(r.site)
             : strings.signIn.successUnverified(r.site)
         : r.reason === 'not-signed-in'
-          ? importing.current
-            ? strings.signIn.notSignedInPasted(r.site)
-            : strings.signIn.notSignedIn(r.site)
+          ? strings.signIn.notSignedIn(r.site)
           : r.reason === 'no-cookies'
             ? strings.signIn.noCookies(r.site)
             : r.reason === 'bad-file'
               ? strings.signIn.badFile
               : r.reason === 'unavailable'
-            ? strings.signIn.unavailable
-            : r.reason === 'busy'
-              ? strings.signIn.busy
-              : r.reason === 'bad-site'
-                ? strings.signIn.badSite
-                : null
-      if (message === null) break // cancelled; the effect above closes the dialog
+                ? strings.signIn.unavailable
+                : r.reason === 'busy'
+                  ? strings.signIn.busy
+                  : r.reason === 'bad-site'
+                    ? strings.signIn.badSite
+                    : ''
+      title = r.ok ? strings.signIn.doneTitle : strings.signIn.formTitle(site)
       body = (
         <p
           className={`rounded-lg px-3 py-2 text-sm leading-relaxed ${
@@ -216,9 +235,8 @@ export default function SignInDialog({
       )
       buttons = (
         <>
-          {/* A paste that held no login gets another go without starting over. */}
-          {!r.ok && importing.current && (
-            <button onClick={() => setPhase({ kind: 'paste' })} className={secondary}>
+          {!r.ok && (
+            <button onClick={() => setPhase({ kind: 'form' })} className={secondary}>
               {strings.signIn.tryAgain}
             </button>
           )}

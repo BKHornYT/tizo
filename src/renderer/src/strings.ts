@@ -74,45 +74,40 @@ export const strings = {
     go: 'Sign in',
     unavailable:
       'Signing in needs secure storage, and this computer does not offer any (on Linux: a keyring such as GNOME Keyring or KWallet). Nothing was stored.',
-    noticeTitle: 'Before you sign in',
+    noticeTitle: 'Before you add a login',
     notice: [
-      'A sign-in window opens. Sign in there the way you normally would, including any code or check the site asks for.',
-      'Tizo then keeps that login on this computer, encrypted so only your user account can read it, and sends it only to that same site when you download from it. It never reaches us, and it is never part of a report.',
-      'You can sign out any time in Settings → Signed-in sites.'
+      'Tizo keeps the login on this computer, encrypted so only your user account can read it, and sends it only to that same site when you download from it.',
+      'It never reaches us, and it is never part of a report. You can remove it any time in Settings → Signed-in sites.'
     ],
     noticeOk: 'OK, continue',
-    waitingTitle: (site: string) => `Signing in to ${site}`,
-    waiting: 'Sign in in the window that just opened. When you are signed in, click Done.',
-    done: 'Done',
-    cancel: 'Cancel',
-    close: 'Close',
-    success: (site: string) => `Signed in to ${site}. Failed downloads from it are being tried again.`,
-    successUnverified: (site: string) =>
-      `Saved the login for ${site}. Tizo cannot check this site, so if downloads still fail, sign in again.`,
-    notSignedIn: (site: string) =>
-      `It does not look like signing in to ${site} finished, so nothing was saved. Try again and click Done only once you are signed in.`,
-    pasteOffer: '“Continue with Google” or Apple not working here? Copy your login from your normal browser instead. It takes a minute and needs nothing installed.',
-    pasteInstead: 'Paste cookies instead',
-    pasteTitle: (site: string) => `Paste your ${site} login`,
-    pasteSteps: (site: string) => [
-      `In Chrome or Edge, open ${site} and make sure you are signed in.`,
-      'Press F12, click the Network tab, then press F5 to reload the page.',
-      'Click the first row in the list. Under Request Headers, right-click “cookie” and choose Copy value.',
-      'Paste it here.'
-    ],
-    pastePlaceholder: 'auth_token=…; ct0=…; …',
-    pasteXHint:
-      'For X, only two are needed. You can also copy them from F12 → Application → Cookies → https://x.com and paste them like auth_token=VALUE; ct0=VALUE',
+    formTitle: (site: string) => `Add your ${site} login`,
+    whereFields: (site: string) =>
+      `In Chrome or Edge, open ${site} signed in, press F12, then go to Application → Cookies → https://${site}. Copy each value below from the Value column.`,
+    wherePaste: (site: string) =>
+      `In Chrome or Edge, open ${site} signed in, press F12, then go to Application → Cookies → https://${site}. Paste the cookies here as name=value; name2=value2.`,
+    fieldLabel: (name: string) => name,
+    save: 'Save',
+    orLabel: 'Or:',
+    openLoginPage: (site: string) => `Open the ${site} login page`,
+    loadFile: 'load a cookies.txt file',
     pasteNote:
       'This is your login: paste it only into Tizo. It is kept encrypted on this computer and sent only to this site.',
-    pasteButton: 'Use these cookies',
-    loadFile: 'Load a cookies.txt file',
+    waitingTitle: (site: string) => `Signing in to ${site}`,
+    waiting:
+      'Sign in in the window that just opened. When you are signed in, click Done. If “Continue with Google” does not work there, go back and paste the values instead.',
+    done: 'Done',
+    back: 'Back',
+    cancel: 'Cancel',
+    close: 'Close',
+    doneTitle: 'Login saved',
     tryAgain: 'Try again',
-    imported: (site: string) => `Added your login for ${site}. Failed downloads from it are being tried again.`,
-    noCookies: (site: string) =>
-      `Nothing in that was a cookie for ${site}. Copy the cookie value while you are on ${site}.`,
-    notSignedInPasted: (site: string) =>
-      `Those cookies are from ${site}, but they do not include a login. Sign in to ${site} in your browser first, then copy again.`,
+    success: (site: string) => `Signed in to ${site}. Failed downloads from it are being tried again.`,
+    successUnverified: (site: string) =>
+      `Saved the login for ${site}. Tizo cannot check this site, so if downloads still fail, add it again.`,
+    imported: (site: string) => `Saved your ${site} login. Failed downloads from it are being tried again.`,
+    notSignedIn: (site: string) =>
+      `That is not a ${site} login yet, so nothing was saved. Make sure you are signed in to ${site} in your browser and copy the values again.`,
+    noCookies: (site: string) => `Nothing in that was a cookie for ${site}.`,
     badFile: 'That does not look like cookies.',
     busy: 'A sign-in window is already open.',
     badSite: 'That does not look like a website address.'
