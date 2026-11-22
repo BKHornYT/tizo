@@ -12,7 +12,7 @@ Newest first. One entry per change, using this format:
 ---
 
 ## 2026-11-22 — v0.0.18: pasting into the sign-in boxes works
-**What:** owner: pasting into the auth_token / ct0 boxes only flashed "No links found in what you pasted". The queue's paste-anywhere handler (`views/Queue.tsx`, a `window` paste listener) took every paste and called `preventDefault()`, including pastes into text boxes. It now ignores pastes whose target is an input, a textarea or contenteditable, so those go to the box and paste-anywhere still works everywhere else. Full `npm test` + build green. Released on the owner's "quickly fix and publish".
+**What:** owner: pasting into the auth_token / ct0 boxes only flashed "No links found in what you pasted". The queue's paste-anywhere handler (`views/Queue.tsx`, a `window` paste listener) took every paste and called `preventDefault()`, including pastes into text boxes. It now ignores pastes whose target is an input, a textarea or contenteditable, so those go to the box and paste-anywhere still works everywhere else. Full `npm test` + build green. Released on the owner's "quickly fix and publish": commit `fc040ca`, run 45059224382 green, 7 assets, feed 0.0.18.
 **Files:** src/renderer/src/views/Queue.tsx, package.json, package-lock.json, changes.md
 
 ## 2026-11-22 — v0.0.17: plain "auth_token / ct0" boxes, login page only on request

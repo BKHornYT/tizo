@@ -36,7 +36,8 @@ any site; one-time notice instead of a terms re-prompt; build, then the owner sa
       (now NO_MEDIA with the sign-in button). Built + tested, **shipped in v0.0.15** (2026-11-22)
 - [x] v0.0.16 (2026-11-22): paste cookies from F12, no extension (owner's ask); CI green, feed 0.0.16
 - [x] v0.0.17 (2026-11-22): dialog opens on plain auth_token / ct0 boxes; login page only on request (owner's ask). CI green, feed 0.0.17
-- [ ] Owner: test v0.0.17 — paste auth_token + ct0 from F12 → Application → Cookies, Save, the X row retries
+- [x] v0.0.18 (2026-11-22): pasting into the sign-in boxes works (paste-anywhere no longer swallows text-box pastes). CI green, feed 0.0.18
+- [ ] Owner: test v0.0.18 — paste auth_token + ct0 from F12 → Application → Cookies, Save, the X row retries
 - [ ] Later: write refreshed cookies back after each run (sites rotate them); today a stale session
       means "sign in again"
 

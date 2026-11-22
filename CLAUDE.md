@@ -1,6 +1,6 @@
 # Video Downloader Tizo
 
-**Status:** 🚧 v0.0.17 shipped 2026-11-22 (Windows + Linux: sign in to sites via auth_token/ct0 boxes or login page, X multi-video) — Phases 0–5, 8–9 done, Phase 7 rung 1 shipped; Phase 6 (clipboard, history, tray) next
+**Status:** 🚧 v0.0.18 shipped 2026-11-22 (Windows + Linux: sign in to sites via auth_token/ct0 boxes or login page, X multi-video) — Phases 0–5, 8–9 done, Phase 7 rung 1 shipped; Phase 6 (clipboard, history, tray) next
 **Created:** 2026-08-20
 **One-liner:** A universal video downloader for Windows and Linux with a GUI,
 self-updating,
