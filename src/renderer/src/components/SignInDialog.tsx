@@ -7,8 +7,8 @@ type Phase =
   | { kind: 'unavailable' }
   | { kind: 'notice' }
   | { kind: 'waiting' }
-  /** After a file import was abandoned: open the window again, or pick a file. */
-  | { kind: 'importOrWindow' }
+  /** Paste cookies copied from the user's own browser (no extension needed). */
+  | { kind: 'paste' }
   | { kind: 'result'; result: SignInResult }
 
 /**
@@ -27,9 +27,10 @@ export default function SignInDialog({
 }): React.JSX.Element {
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' })
   const started = useRef(false)
-  // Set while switching from the window to a file import, so the window's own
-  // "cancelled" result does not close the dialog underneath the file picker.
+  // Set once the user switches from the window to pasting or a file, so the
+  // window's own "cancelled" result does not close the dialog underneath.
   const importing = useRef(false)
+  const [pasted, setPasted] = useState('')
 
   const begin = (): void => {
     if (started.current) return
@@ -40,21 +41,23 @@ export default function SignInDialog({
     })
   }
 
-  const importInstead = (): void => {
+  /** Closes the sign-in window (keeping nothing) and shows the paste box. */
+  const pasteInstead = (): void => {
     importing.current = true
-    void window.tizo.auth
-      .cancel()
-      .then(() => window.tizo.auth.importFile(site))
-      .then((result) => {
-        if (!result.ok && result.reason === 'cancelled') {
-          // Picker closed without a file: back to choosing, not out of the dialog.
-          importing.current = false
-          started.current = false
-          setPhase({ kind: 'importOrWindow' })
-          return
-        }
-        setPhase({ kind: 'result', result })
-      })
+    void window.tizo.auth.cancel()
+    setPhase({ kind: 'paste' })
+  }
+
+  const usePasted = (): void => {
+    void window.tizo.auth.importText(site, pasted).then((result) => setPhase({ kind: 'result', result }))
+  }
+
+  const importFile = (): void => {
+    void window.tizo.auth.importFile(site).then((result) => {
+      // Picker closed without a file: stay on the paste box.
+      if (!result.ok && result.reason === 'cancelled') return
+      setPhase({ kind: 'result', result })
+    })
   }
 
   useEffect(() => {
@@ -115,23 +118,39 @@ export default function SignInDialog({
         </>
       )
       break
-    case 'importOrWindow':
+    case 'paste':
+      title = strings.signIn.pasteTitle(site)
       body = (
         <>
-          <p className="text-sm leading-relaxed text-ink-700">{strings.signIn.importHint}</p>
-          <p className="mt-2 text-xs leading-relaxed text-ink-500">{strings.signIn.importNote}</p>
+          <ol className="list-decimal space-y-1 pl-5 text-[13px] leading-relaxed text-ink-700">
+            {strings.signIn.pasteSteps(site).map((step, i) => (
+              <li key={i}>{step}</li>
+            ))}
+          </ol>
+          <textarea
+            autoFocus
+            value={pasted}
+            onChange={(e) => setPasted(e.target.value)}
+            placeholder={strings.signIn.pastePlaceholder}
+            spellCheck={false}
+            className="mt-3 h-24 w-full resize-none rounded-md border border-surface-line bg-white p-2 font-mono text-[11px] text-ink-900 outline-none focus:border-brand-500"
+          />
+          {site === 'x.com' && (
+            <p className="mt-1.5 text-[11px] leading-relaxed text-ink-500">{strings.signIn.pasteXHint}</p>
+          )}
+          <p className="mt-1.5 text-[11px] leading-relaxed text-ink-500">{strings.signIn.pasteNote}</p>
         </>
       )
       buttons = (
         <>
+          <button onClick={importFile} className={`${secondary} mr-auto`}>
+            {strings.signIn.loadFile}
+          </button>
           <button onClick={() => onClose(false)} className={secondary}>
             {strings.signIn.cancel}
           </button>
-          <button onClick={begin} className={secondary}>
-            {strings.signIn.button(site)}
-          </button>
-          <button onClick={importInstead} className={primary}>
-            {strings.signIn.importButton}
+          <button onClick={usePasted} disabled={!pasted.trim()} className={`${primary} disabled:opacity-40`}>
+            {strings.signIn.pasteButton}
           </button>
         </>
       )
@@ -141,14 +160,13 @@ export default function SignInDialog({
         <>
           <p className="text-sm leading-relaxed text-ink-700">{strings.signIn.waiting}</p>
           <div className="mt-4 rounded-lg bg-ink-900/5 px-3 py-2.5">
-            <p className="text-xs leading-relaxed text-ink-700">{strings.signIn.importHint}</p>
+            <p className="text-xs leading-relaxed text-ink-700">{strings.signIn.pasteOffer}</p>
             <button
-              onClick={importInstead}
+              onClick={pasteInstead}
               className="mt-2 rounded-md bg-ink-900/8 px-3 py-1.5 text-xs text-ink-700 transition hover:bg-ink-900/15"
             >
-              {strings.signIn.importButton}
+              {strings.signIn.pasteInstead}
             </button>
-            <p className="mt-2 text-[11px] leading-relaxed text-ink-500">{strings.signIn.importNote}</p>
           </div>
         </>
       )
@@ -173,7 +191,7 @@ export default function SignInDialog({
             : strings.signIn.successUnverified(r.site)
         : r.reason === 'not-signed-in'
           ? importing.current
-            ? strings.signIn.notSignedInFile(r.site)
+            ? strings.signIn.notSignedInPasted(r.site)
             : strings.signIn.notSignedIn(r.site)
           : r.reason === 'no-cookies'
             ? strings.signIn.noCookies(r.site)
@@ -197,9 +215,17 @@ export default function SignInDialog({
         </p>
       )
       buttons = (
-        <button onClick={() => onClose(changed)} className={primary}>
-          {strings.signIn.close}
-        </button>
+        <>
+          {/* A paste that held no login gets another go without starting over. */}
+          {!r.ok && importing.current && (
+            <button onClick={() => setPhase({ kind: 'paste' })} className={secondary}>
+              {strings.signIn.tryAgain}
+            </button>
+          )}
+          <button onClick={() => onClose(changed)} className={primary}>
+            {strings.signIn.close}
+          </button>
+        </>
       )
       break
     }

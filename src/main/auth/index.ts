@@ -28,6 +28,7 @@ import { dataDir } from '../paths'
 import {
   cookiesForSite,
   fromNetscape,
+  fromPasted,
   liveCookies,
   loginUrlFor,
   looksSignedIn,
@@ -301,6 +302,23 @@ export async function importCookieFile(rawSite: string, parent: BrowserWindow | 
   } catch {
     return { ok: false, reason: 'bad-file' }
   }
+  return storeImported(site, cookies)
+}
+
+/**
+ * Cookies the user pasted (copied from Chrome's F12 tools: a `Cookie:` header,
+ * `name=value` pairs, cookies.txt text or JSON). Same rules as a file: only
+ * `site`'s cookies, a login marker for one-click sites, encrypted at rest.
+ */
+export function importCookieText(rawSite: string, text: string): SignInResult {
+  const site = siteKeyOf(rawSite)
+  if (!site) return { ok: false, reason: 'bad-site' }
+  if (!encryptionAvailable()) return { ok: false, reason: 'unavailable' }
+  if (text.length > 1024 * 1024) return { ok: false, reason: 'bad-file' }
+  return storeImported(site, liveCookies(cookiesForSite(fromPasted(text, site), site)))
+}
+
+function storeImported(site: string, cookies: StoredCookie[]): SignInResult {
   if (cookies.length === 0) return { ok: false, reason: 'no-cookies', site }
 
   const confirmed = looksSignedIn(site, cookies)

@@ -176,6 +176,66 @@ export function fromNetscape(text: string): StoredCookie[] {
   return out
 }
 
+/**
+ * Cookies pasted by hand for `site`, in whatever shape the user copied:
+ * cookies.txt text, a JSON cookie list, or (most often) a `Cookie:` request
+ * header / `name=value; name2=value2` pairs copied from Chrome's F12 tools. The
+ * last form carries no domain, so the cookies are scoped to `.site`.
+ */
+export function fromPasted(text: string, site: string): StoredCookie[] {
+  const body = text.replace(/^﻿/, '').trim()
+  if (!body) return []
+
+  if (body.includes('\t')) {
+    const fromFile = fromNetscape(body)
+    if (fromFile.length > 0) return fromFile
+  }
+
+  if (body.startsWith('[') || body.startsWith('{')) {
+    try {
+      const raw = JSON.parse(body) as unknown
+      const list = (Array.isArray(raw) ? raw : (raw as { cookies?: unknown[] }).cookies ?? []) as Array<
+        Record<string, unknown>
+      >
+      const out: StoredCookie[] = []
+      for (const c of list) {
+        const name = typeof c.name === 'string' ? c.name : ''
+        const value = typeof c.value === 'string' ? c.value : ''
+        if (!name || /[\t\r\n]/.test(name + value)) continue
+        const domain = typeof c.domain === 'string' && c.domain ? c.domain : `.${site}`
+        const exp = Number(c.expirationDate ?? c.expires ?? 0)
+        out.push({
+          name,
+          value,
+          domain,
+          path: typeof c.path === 'string' && c.path ? c.path : '/',
+          secure: c.secure !== false,
+          httpOnly: c.httpOnly === true,
+          hostOnly: c.hostOnly === true,
+          ...(Number.isFinite(exp) && exp > 0 ? { expirationDate: exp } : {})
+        })
+      }
+      if (out.length > 0) return out
+    } catch {
+      /* not JSON after all; try the header form */
+    }
+  }
+
+  // `Cookie: a=b; c=d`, or the same without the header name, possibly over
+  // several lines. Values keep any `=` they contain.
+  const header = body.replace(/^\s*cookie\s*:\s*/i, '').replace(/[\r\n]+/g, ';')
+  const out: StoredCookie[] = []
+  for (const part of header.split(';')) {
+    const eq = part.indexOf('=')
+    if (eq <= 0) continue
+    const name = part.slice(0, eq).trim()
+    const value = part.slice(eq + 1).trim().replace(/^"(.*)"$/, '$1')
+    if (!name || /[\s\t]/.test(name) || /[\t]/.test(value)) continue
+    out.push({ name, value, domain: `.${site}`, path: '/', secure: true, httpOnly: false, hostOnly: false })
+  }
+  return out
+}
+
 /** The cookies in `cookies` that belong to `site` (by registrable domain). */
 export function cookiesForSite(cookies: StoredCookie[], site: string): StoredCookie[] {
   return cookies.filter((c) => siteKeyOf(c.domain.replace(/^\./, '')) === site)

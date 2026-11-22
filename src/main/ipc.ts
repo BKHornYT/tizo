@@ -19,6 +19,7 @@ import {
   cancelSignIn,
   finishSignIn,
   importCookieFile,
+  importCookieText,
   signIn,
   signInState,
   signOut,
@@ -190,6 +191,15 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle('auth:importFile', async (_e, site: unknown) => {
     if (typeof site !== 'string') return { ok: false, reason: 'bad-site' }
     const result = await importCookieFile(site, getWindow())
+    if (result.ok) {
+      const ffmpeg = await resolveFfmpeg()
+      queue.retryForSite(result.site, siteFor, ffmpeg.found)
+    }
+    return result
+  })
+  ipcMain.handle('auth:importText', async (_e, site: unknown, text: unknown) => {
+    if (typeof site !== 'string' || typeof text !== 'string') return { ok: false, reason: 'bad-site' }
+    const result = importCookieText(site, text)
     if (result.ok) {
       const ffmpeg = await resolveFfmpeg()
       queue.retryForSite(result.site, siteFor, ffmpeg.found)

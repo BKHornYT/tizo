@@ -13,6 +13,7 @@ import {
   KNOWN_SITES,
   cookiesForSite,
   fromNetscape,
+  fromPasted,
   liveCookies,
   loginUrlFor,
   looksSignedIn,
@@ -136,6 +137,21 @@ ok(
   'import → yt-dlp file → import keeps every cookie',
   round.length === forX.length && round.every((r) => forX.some((f) => f.name === r.name && f.value === r.value))
 )
+
+// --- pasting cookies copied from F12 (no extension) ------------------------
+
+const header = fromPasted('cookie: guest_id=v1%3A1; auth_token=abc123; ct0=f00=; lang=en', 'x.com')
+ok('a copied "cookie:" header parses', header.length === 4)
+ok('values keep an = inside them', header.find((x) => x.name === 'ct0')?.value === 'f00=')
+ok('header cookies are scoped to the site', header.every((x) => x.domain === '.x.com' && x.path === '/'))
+ok('a pasted X login is recognised', looksSignedIn('x.com', header) === true)
+ok('the two X values alone work', looksSignedIn('x.com', fromPasted('auth_token=abc; ct0=def', 'x.com')) === true)
+ok('pairs over several lines parse', fromPasted('auth_token=abc\nct0=def\n', 'x.com').length === 2)
+ok('a pasted cookies.txt still parses as one', fromPasted(exported, 'x.com').length === 5)
+const json = fromPasted(JSON.stringify([{ name: 'auth_token', value: 'j', domain: '.x.com', path: '/', secure: true, httpOnly: true, expirationDate: Math.floor(future) }]), 'x.com')
+ok('a pasted JSON cookie list parses', json.length === 1 && json[0]?.httpOnly === true)
+ok('random text yields nothing', fromPasted('hello there', 'x.com').length === 0)
+ok('pasted cookies survive the round trip to yt-dlp', fromNetscape(toNetscape(header)).length === 4)
 
 // --- the --cookies flag -----------------------------------------------------
 

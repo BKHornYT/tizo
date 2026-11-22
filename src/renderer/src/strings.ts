@@ -91,16 +91,29 @@ export const strings = {
       `Saved the login for ${site}. Tizo cannot check this site, so if downloads still fail, sign in again.`,
     notSignedIn: (site: string) =>
       `It does not look like signing in to ${site} finished, so nothing was saved. Try again and click Done only once you are signed in.`,
-    importHint:
-      '“Continue with Google” or Apple not working in this window? Sign in to the site in your normal browser instead, export its cookies with an extension such as “Get cookies.txt LOCALLY”, and import that file.',
-    importButton: 'Import a cookies file',
-    importNote:
-      'That file holds your login. Delete it once it is imported. Tizo keeps its own encrypted copy.',
-    imported: (site: string) => `Imported the login for ${site}. Failed downloads from it are being tried again.`,
-    noCookies: (site: string) => `That file has no cookies for ${site}. Export it while you are on ${site}.`,
-    notSignedInFile: (site: string) =>
-      `That file has cookies for ${site}, but no login. Sign in to ${site} in your browser first, then export again.`,
-    badFile: 'That does not look like a cookies.txt file.',
+    pasteOffer: '“Continue with Google” or Apple not working here? Copy your login from your normal browser instead. It takes a minute and needs nothing installed.',
+    pasteInstead: 'Paste cookies instead',
+    pasteTitle: (site: string) => `Paste your ${site} login`,
+    pasteSteps: (site: string) => [
+      `In Chrome or Edge, open ${site} and make sure you are signed in.`,
+      'Press F12, click the Network tab, then press F5 to reload the page.',
+      'Click the first row in the list. Under Request Headers, right-click “cookie” and choose Copy value.',
+      'Paste it here.'
+    ],
+    pastePlaceholder: 'auth_token=…; ct0=…; …',
+    pasteXHint:
+      'For X, only two are needed. You can also copy them from F12 → Application → Cookies → https://x.com and paste them like auth_token=VALUE; ct0=VALUE',
+    pasteNote:
+      'This is your login: paste it only into Tizo. It is kept encrypted on this computer and sent only to this site.',
+    pasteButton: 'Use these cookies',
+    loadFile: 'Load a cookies.txt file',
+    tryAgain: 'Try again',
+    imported: (site: string) => `Added your login for ${site}. Failed downloads from it are being tried again.`,
+    noCookies: (site: string) =>
+      `Nothing in that was a cookie for ${site}. Copy the cookie value while you are on ${site}.`,
+    notSignedInPasted: (site: string) =>
+      `Those cookies are from ${site}, but they do not include a login. Sign in to ${site} in your browser first, then copy again.`,
+    badFile: 'That does not look like cookies.',
     busy: 'A sign-in window is already open.',
     badSite: 'That does not look like a website address.'
   },

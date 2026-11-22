@@ -132,6 +132,9 @@ const api = {
     signIn: (site: string): Promise<SignInResult> => ipcRenderer.invoke('auth:signIn', site),
     /** Picks a cookies.txt exported from the user's own browser; keeps `site`'s cookies only. */
     importFile: (site: string): Promise<SignInResult> => ipcRenderer.invoke('auth:importFile', site),
+    /** Cookies pasted by hand (F12 copy, header, pairs, cookies.txt or JSON); keeps `site`'s only. */
+    importText: (site: string, text: string): Promise<SignInResult> =>
+      ipcRenderer.invoke('auth:importText', site, text),
     /** "Done": closes the window and keeps the session. */
     finish: (): Promise<void> => ipcRenderer.invoke('auth:finish'),
     /** Closes the window and keeps nothing. */
