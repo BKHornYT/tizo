@@ -59,6 +59,42 @@ export const strings = {
       'Worth trying again tomorrow first — the download engine updates weekly, and a stale engine is the usual cause.'
   },
 
+  signIn: {
+    button: (site: string) => `Sign in to ${site}`,
+    section: 'Signed-in sites',
+    sectionHint:
+      'Some videos need an account: private posts, age-restricted videos, posts marked sensitive. Sign in once and Tizo uses that login for downloads from the same site only.',
+    none: 'Not signed in anywhere.',
+    signedInAt: (when: string) => `Signed in ${when}`,
+    unverified: 'could not confirm the login',
+    signOut: 'Sign out',
+    again: 'Sign in again',
+    otherLabel: 'Another site',
+    otherPlaceholder: 'example.com',
+    go: 'Sign in',
+    unavailable:
+      'Signing in needs secure storage, and this computer does not offer any (on Linux: a keyring such as GNOME Keyring or KWallet). Nothing was stored.',
+    noticeTitle: 'Before you sign in',
+    notice: [
+      'A sign-in window opens. Sign in there the way you normally would, including any code or check the site asks for.',
+      'Tizo then keeps that login on this computer, encrypted so only your user account can read it, and sends it only to that same site when you download from it. It never reaches us, and it is never part of a report.',
+      'You can sign out any time in Settings → Signed-in sites.'
+    ],
+    noticeOk: 'OK, continue',
+    waitingTitle: (site: string) => `Signing in to ${site}`,
+    waiting: 'Sign in in the window that just opened. When you are signed in, click Done.',
+    done: 'Done',
+    cancel: 'Cancel',
+    close: 'Close',
+    success: (site: string) => `Signed in to ${site}. Failed downloads from it are being tried again.`,
+    successUnverified: (site: string) =>
+      `Saved the login for ${site}. Tizo cannot check this site, so if downloads still fail, sign in again.`,
+    notSignedIn: (site: string) =>
+      `It does not look like signing in to ${site} finished, so nothing was saved. Try again and click Done only once you are signed in.`,
+    busy: 'A sign-in window is already open.',
+    badSite: 'That does not look like a website address.'
+  },
+
   toolbar: {
     add: 'Add link',
     downloads: 'Downloads',

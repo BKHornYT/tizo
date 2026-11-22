@@ -2,6 +2,8 @@ import { execFile } from 'node:child_process'
 import { resolveYtdlp } from './binaries'
 import { binaryMissing, classifyError } from './errors'
 import { profileFor } from './args'
+import { itemArgs, itemUrl, splitItem } from './item'
+import { cookieFileFor } from '../auth'
 import { loadManifest } from '../components/manifest'
 import type { MediaInfo, PlaylistInfo, Result, SubtitleTrack } from '../../shared/types'
 import {
@@ -16,6 +18,21 @@ import {
 
 /** Entries beyond this are ignored — a channel can hold tens of thousands. */
 const PLAYLIST_CAP = 500
+
+/**
+ * Runs `fn` with the `--cookies` flags for `url`'s site when the user is signed
+ * in to it (src/main/auth), and deletes the temporary file afterwards. Reading a
+ * page is where a login wall shows up (an X post marked sensitive, a private
+ * Instagram), so the probe needs the session as much as the download does.
+ */
+async function withCookies<T>(url: string, fn: (extra: string[]) => Promise<T>): Promise<T> {
+  const cookies = cookieFileFor(url)
+  try {
+    return await fn(cookies ? ['--cookies', cookies.path] : [])
+  } finally {
+    cookies?.cleanup()
+  }
+}
 
 /**
  * Runs yt-dlp and, if the failure looks like a bot wall, runs it again with
@@ -156,54 +173,70 @@ export async function inspectPlaylist(url: string): Promise<Result<PlaylistInfo 
   if (!bin.found || !bin.path) return { ok: false, error: binaryMissing('yt-dlp') }
 
   if (/[?&]v=/.test(url)) return { ok: true, value: null }
+  // Already one entry picked out of a playlist. Asking again would hand back the
+  // whole playlist, because the marker is stripped before yt-dlp sees the URL.
+  if (splitItem(url).item) return { ok: true, value: null }
 
-  const args = [
-    '--ignore-config',
-    '-J',
-    '--flat-playlist',
-    '--no-warnings',
-    '--playlist-items',
-    `1:${PLAYLIST_CAP}`,
-    url
-  ]
-
-  const run = await runYtdlp(bin.path, args, 120_000)
+  const run = await withCookies(url, (cookies) =>
+    runYtdlp(
+      bin.path!,
+      [
+        '--ignore-config',
+        '-J',
+        '--flat-playlist',
+        '--no-warnings',
+        '--playlist-items',
+        `1:${PLAYLIST_CAP}`,
+        ...cookies,
+        url
+      ],
+      120_000
+    )
+  )
   if (!run.ok) return { ok: false, error: classifyError(run.stderr, url) }
 
+  return { ok: true, value: shapePlaylist(run.stdout, url) }
+}
+
+/** --flat-playlist -J output as a playlist of 2+ entries, else null. */
+function shapePlaylist(stdout: string, url: string): PlaylistInfo | null {
   try {
-    const raw = JSON.parse(run.stdout) as {
+    const raw = JSON.parse(stdout) as {
       _type?: string
       title?: string
       playlist_count?: number
-      entries?: Array<{ id?: string; url?: string; title?: string; duration?: number | null }>
+      entries?: Array<{
+        id?: string
+        url?: string
+        title?: string
+        duration?: number | null
+        playlist_index?: number | null
+      }>
     }
 
-    if (raw._type !== 'playlist' || !Array.isArray(raw.entries)) return { ok: true, value: null }
+    if (raw._type !== 'playlist' || !Array.isArray(raw.entries)) return null
 
     const entries = raw.entries
-      .filter((e) => e.url || e.id)
-      .map((e) => ({
+      // Position first: `--playlist-items` counts every entry yt-dlp listed,
+      // including any the filter below drops.
+      .map((e, i) => ({ e, position: e.playlist_index ?? i + 1 }))
+      .filter(({ e }) => e.url || e.id)
+      .map(({ e, position }) => ({
         id: e.id ?? e.url ?? '',
-        url: e.url ?? '',
+        // Inline entries (several videos in one post) have no address of their
+        // own; give them the playlist's, marked with their position (item.ts).
+        url: e.url ?? itemUrl(url, position),
         title: e.title ?? e.id ?? 'Untitled',
         duration: e.duration ?? null
       }))
       .filter((e) => e.url)
 
     // A "playlist" of one is just a video with extra steps.
-    if (entries.length < 2) return { ok: true, value: null }
+    if (entries.length < 2) return null
 
-    return {
-      ok: true,
-      value: {
-        url,
-        title: raw.title ?? 'Playlist',
-        count: raw.playlist_count ?? entries.length,
-        entries
-      }
-    }
+    return { url, title: raw.title ?? 'Playlist', count: raw.playlist_count ?? entries.length, entries }
   } catch {
-    return { ok: true, value: null }
+    return null
   }
 }
 
@@ -227,51 +260,142 @@ async function impersonationFor(url: string): Promise<string | null> {
 }
 
 export async function probe(url: string): Promise<Result<MediaInfo>> {
+  const r = await probeRaw(url)
+  return r.ok ? { ok: true, value: r.value.info } : r
+}
+
+/**
+ * probe(), plus yt-dlp's own JSON as it came out. A caller that keeps the JSON can
+ * hand it to the download (`DownloadRequest.infoJson`), which then skips a second
+ * extraction of the page, and can read fields MediaInfo leaves out (description,
+ * tags, upload date) without running yt-dlp again.
+ */
+export async function probeRaw(url: string): Promise<Result<{ info: MediaInfo; raw: string }>> {
   const bin = await resolveYtdlp()
   if (!bin.found || !bin.path) return { ok: false, error: binaryMissing('yt-dlp') }
 
   const target = await impersonationFor(url)
-  const args = [
-    '--ignore-config',
-    '-J',
-    '--no-warnings',
-    '--no-playlist',
-    ...(target ? ['--impersonate', target] : []),
-    url
-  ]
-
-  const run = await runYtdlp(bin.path, args, 90_000)
+  const picked = splitItem(url)
+  const run = await withCookies(url, (cookies) =>
+    runYtdlp(
+      bin.path!,
+      [
+        '--ignore-config',
+        '-J',
+        '--no-warnings',
+        ...(picked.item ? itemArgs(picked.item) : ['--no-playlist']),
+        ...(target ? ['--impersonate', target] : []),
+        ...cookies,
+        picked.url
+      ],
+      90_000
+    )
+  )
   if (!run.ok) return { ok: false, error: classifyError(run.stderr, url) }
-
-  try {
-    const info = JSON.parse(run.stdout) as RawInfo
-    return {
-      ok: true,
-      value: {
-        id: info.id,
-        title: info.title ?? 'Untitled',
-        uploader: info.uploader ?? info.channel ?? null,
-        duration: info.duration ?? null,
-        thumbnail: info.thumbnail ?? null,
-        webpageUrl: info.webpage_url ?? url,
-        extractor: info.extractor_key ?? info.extractor ?? 'unknown',
-        formats: shapeFormats(rawFormatsOf(info)),
-        allFormats: listAllFormats(rawFormatsOf(info)),
-        subtitles: shapeSubtitles(info),
-        // Carried through so the download uses the same route that made the
-        // probe work — otherwise a site we just got past would refuse us again.
-        impersonate: run.impersonated,
-        impersonateTarget: run.target
-      }
-    }
-  } catch {
+  // A picked entry comes back as a playlist of one. Unwrap it, and keep the
+  // unwrapped JSON as `raw` too: a download replaying it (`--load-info-json`)
+  // needs the video itself, not a one-entry playlist.
+  const stdout = picked.item ? unwrapSingle(run.stdout) : run.stdout
+  if (stdout === null) {
     return {
       ok: false,
-      error: {
-        code: 'UNKNOWN',
-        message: 'The site responded with something we could not read.',
-        detail: run.stdout.slice(0, 2000)
-      }
+      error: { code: 'UNAVAILABLE', message: 'That video is no longer in the post.', detail: run.stdout.slice(0, 2000) }
     }
   }
+  const info = shapeInfo(stdout, url, run.impersonated, run.target)
+  return info ? { ok: true, value: { info, raw: stdout } } : unreadable(stdout)
+}
+
+/**
+ * The one entry of a `--playlist-items N` result, as JSON. Null when the
+ * position matched nothing (the post was edited, or a video was deleted). A
+ * result that is not a playlist at all is already the video and passes through.
+ */
+function unwrapSingle(stdout: string): string | null {
+  try {
+    const raw = JSON.parse(stdout) as { _type?: string; entries?: unknown[] }
+    if (raw._type !== 'playlist') return stdout
+    const entries = Array.isArray(raw.entries) ? raw.entries : []
+    return entries.length === 1 ? JSON.stringify(entries[0]) : null
+  } catch {
+    return stdout
+  }
+}
+
+function unreadable(stdout: string): { ok: false; error: { code: 'UNKNOWN'; message: string; detail: string } } {
+  return {
+    ok: false,
+    error: { code: 'UNKNOWN', message: 'The site responded with something we could not read.', detail: stdout.slice(0, 2000) }
+  }
+}
+
+/** yt-dlp's -J output as MediaInfo; null when unreadable, or (singleOnly) when it is a playlist. */
+function shapeInfo(stdout: string, url: string, impersonated: boolean, target: string | null, singleOnly = false): MediaInfo | null {
+  let info: RawInfo & { _type?: string }
+  try {
+    info = JSON.parse(stdout) as RawInfo & { _type?: string }
+  } catch {
+    return null
+  }
+  if (!info || typeof info !== 'object' || (singleOnly && info._type === 'playlist')) return null
+  return {
+    id: info.id,
+    title: info.title ?? 'Untitled',
+    uploader: info.uploader ?? info.channel ?? null,
+    duration: info.duration ?? null,
+    thumbnail: info.thumbnail ?? null,
+    webpageUrl: info.webpage_url ?? url,
+    extractor: info.extractor_key ?? info.extractor ?? 'unknown',
+    formats: shapeFormats(rawFormatsOf(info)),
+    allFormats: listAllFormats(rawFormatsOf(info)),
+    subtitles: shapeSubtitles(info),
+    // Carried through so the download uses the same route that made the
+    // probe work — otherwise a site we just got past would refuse us again.
+    impersonate: impersonated,
+    impersonateTarget: target
+  }
+}
+
+/**
+ * One yt-dlp run that answers both questions a pasted link raises: is it a
+ * playlist/channel (its entries, flat), or a single video (its full info, as
+ * probeRaw() would give it)? A single video under `--flat-playlist` is extracted
+ * in full anyway, so inspectPlaylist() followed by probe() read the page twice.
+ * `single` is null when the run worked but gave neither (a one-entry playlist,
+ * an odd result): probe() it then.
+ */
+export async function inspectLink(
+  url: string
+): Promise<Result<{ playlist: PlaylistInfo | null; single: { info: MediaInfo; raw: string } | null }>> {
+  // A watch?v=…&list=… link means that one video (see inspectPlaylist), and so
+  // does an entry already picked out of a playlist (item.ts).
+  if (/[?&]v=/.test(url) || splitItem(url).item) {
+    const p = await probeRaw(url)
+    return p.ok ? { ok: true, value: { playlist: null, single: p.value } } : p
+  }
+  const bin = await resolveYtdlp()
+  if (!bin.found || !bin.path) return { ok: false, error: binaryMissing('yt-dlp') }
+  const target = await impersonationFor(url)
+  const run = await withCookies(url, (cookies) =>
+    runYtdlp(
+      bin.path!,
+      [
+        '--ignore-config',
+        '-J',
+        '--flat-playlist',
+        '--no-warnings',
+        '--playlist-items',
+        `1:${PLAYLIST_CAP}`,
+        ...(target ? ['--impersonate', target] : []),
+        ...cookies,
+        url
+      ],
+      120_000
+    )
+  )
+  if (!run.ok) return { ok: false, error: classifyError(run.stderr, url) }
+  const playlist = shapePlaylist(run.stdout, url)
+  if (playlist) return { ok: true, value: { playlist, single: null } }
+  const info = shapeInfo(run.stdout, url, run.impersonated, run.target, true)
+  return { ok: true, value: { playlist: null, single: info ? { info, raw: run.stdout } : null } }
 }

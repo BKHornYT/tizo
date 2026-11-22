@@ -36,6 +36,14 @@ export const terms = {
         'Nothing else leaves your computer. No account, no name, no email, no browsing history, no file paths.',
         'You can turn this off any time in Options, and the app works exactly the same either way.'
       ]
+    },
+    {
+      heading: 'If you sign in to a site',
+      body: [
+        'Some videos need an account. If you choose to sign in to a site inside Tizo, the login is kept on this computer, encrypted so only your user account can read it.',
+        'It is sent only to that same site, when you download from it. It is never sent to us and never included in a report.',
+        'You can see every site you are signed in to, and sign out, in Settings → Signed-in sites.'
+      ]
     }
   ],
 

@@ -12,14 +12,27 @@ const PATTERNS: Array<{ code: ErrorCode; test: RegExp; message: string }> = [
     message: 'This site is not supported yet.'
   },
   {
+    /*
+     * The extractor read the post fine and found no video in it. On X that is a
+     * text or photo post, or one marked sensitive: X hides sensitive media from
+     * signed-out visitors and reports the post as having none. Classified, not
+     * left as UNKNOWN, because UNKNOWN sends the queue on to scan the page, and
+     * X's page is an app shell with nothing to find.
+     */
+    code: 'NO_MEDIA',
+    test: /no video could be found in this (tweet|post)/i,
+    message:
+      'This post has no video we can see. If it is marked sensitive, X only shows it to signed-in accounts.'
+  },
+  {
     code: 'AUTH_REQUIRED',
     test: /sign in|login required|private video|members-only|requires authentication|use --cookies|account credentials/i,
-    message: 'This video needs an account. Sign-in support arrives with the Auth Pack.'
+    message: 'This video needs an account. Sign in to the site, and Tizo tries again.'
   },
   {
     code: 'AGE_RESTRICTED',
     test: /age[- ]restricted|confirm your age|inappropriate for some users/i,
-    message: 'This video is age-restricted and needs sign-in to access.'
+    message: 'This video is age-restricted. Sign in to the site with an account that may watch it.'
   },
   {
     code: 'GEO_BLOCKED',

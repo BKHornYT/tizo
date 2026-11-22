@@ -5,6 +5,7 @@ import { strings } from '../strings'
 import QueueRow from '../components/QueueRow'
 import PlaylistPicker from '../components/PlaylistPicker'
 import FeedbackDialog from '../components/FeedbackDialog'
+import SignInDialog from '../components/SignInDialog'
 
 /** Rough progress order, so "Status" sorting puts active work at the top. */
 const STATE_RANK: Record<QueueItem['state'], number> = {
@@ -34,6 +35,7 @@ export default function Queue({
   const [choosing, setChoosing] = useState<QueueItem | null>(null)
   const [toast, setToast] = useState<{ id: number; text: string } | null>(null)
   const [reporting, setReporting] = useState<QueueItem | null>(null)
+  const [signingIn, setSigningIn] = useState<string | null>(null)
 
   useEffect(() => {
     void window.tizo.queue.list().then(setItems)
@@ -172,6 +174,7 @@ export default function Queue({
                     hasFfmpeg={hasFfmpeg}
                     onChoose={setChoosing}
                     onReport={setReporting}
+                    onSignIn={setSigningIn}
                   />
                 ))}
               </ul>
@@ -229,6 +232,9 @@ export default function Queue({
           onClose={() => setReporting(null)}
         />
       )}
+
+      {/* Retrying the site's failed rows happens in the main process on success. */}
+      {signingIn && <SignInDialog site={signingIn} onClose={() => setSigningIn(null)} />}
 
       {choosing?.playlist && (
         <PlaylistPicker

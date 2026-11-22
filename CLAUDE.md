@@ -1,6 +1,6 @@
 # Video Downloader Tizo
 
-**Status:** 🚧 Phase 0 done — scaffold runs
+**Status:** 🚧 v0.0.13 shipped (Windows + Linux) — Phases 0–5, 8–9 done; Phase 6 (clipboard, history, tray) next
 **Created:** 2026-08-20
 **One-liner:** A universal video downloader for Windows and Linux with a GUI,
 self-updating,
@@ -48,8 +48,9 @@ file — and a week later gets a bugfix without doing anything.
   done; auto-update is proven working against a real release. v0.0.5 is the first
   build that can actually upload usage counts
 - **Known broken / not started:** no clipboard *watcher* or history or tray
-  (Phase 6), no playlist monitoring (6.5), no optional addon gates or sign-in
-  window (7 — reshaped by [docs/browser-engine.md](docs/browser-engine.md)).
+  (Phase 6), no playlist monitoring (6.5), no optional addon gates (7 — reshaped by
+  [docs/browser-engine.md](docs/browser-engine.md)). The sign-in window (7, rung 1) is
+  built but not released.
 - **Fixed in 0.0.13: the bundled KVS plugin was disabling every built-in
   extractor.** It declared its override with `_PLUGIN_NAME`, which yt-dlp does
   not read, so it registered as a *new* extractor — and new extractors are
@@ -63,6 +64,18 @@ file — and a week later gets a bugfix without doing anything.
   app and can also arrive from the registry, sha256-verified, listed in
   Options. Walled pages are readable — a plain fetch falls back to an
   impersonating one. See [docs/site-support.md](docs/site-support.md).
+- **X / Twitter works (2026-11-22, not yet released):** public videos via stock yt-dlp;
+  multi-video posts now reach the picker (`engine/item.ts`, `#tizo-item=N` →
+  `--playlist-items`), and "no video in this tweet" is `NO_MEDIA`. Sensitive posts
+  need sign-in (below). See [docs/site-support.md](docs/site-support.md).
+- **Sign in to sites (2026-11-22, built, not released, not yet tried with a real
+  account):** a sandboxed sign-in window on an in-memory partition. Sessions are kept in
+  `signins.bin`, encrypted with `safeStorage` (refused without real encryption), and
+  sent as a temp `--cookies` file only to the same site, in probe and download.
+  Offered on AUTH_REQUIRED / AGE_RESTRICTED / NO_MEDIA rows and in Settings → Signed-in
+  sites. Why not a `persist:` partition: Electron does not encrypt its cookies without
+  the `EnableCookieEncryption` fuse. Details: "Rung 1 as built" in
+  [docs/browser-engine.md](docs/browser-engine.md).
 - **Site chain:** pasting a page URL runs probe, then page scan, then the
   page's own embedded player. Only the browser rung is behind Settings >
   Experimental. Verified end to end on a site that shows Player 1 / Player 2
@@ -160,6 +173,7 @@ src/main/engine/browser.ts EXPERIMENTAL: spawns a child that watches what a play
 src/main/engine/media.ts   pure: is an observed request downloadable media?
 src/main/engine/deep.ts    EXPERIMENTAL: follow a page's embedded player
 src/main/engine/plugins.ts installs plugins: bundled, then registry-delivered
+src/main/engine/item.ts    playlist entries with no URL of their own (multi-video posts): #tizo-item=N → --playlist-items
 resources/plugins/         yt-dlp extractor plugins, packed and installed on launch
 src/main/engine/           binaries, probe (incl. playlists), download, error classes
 src/main/queue/            item state, probing, concurrency pump, playlist expansion
@@ -167,12 +181,15 @@ src/main/components/       fetch (resumable) + verify + unzip — powers setup A
 src/main/setup/            first-run orchestration and on-disk setup state
 src/main/update/           electron-updater + the weekly yt-dlp engine channel
 src/main/feedback.ts       builds prefilled GitHub issues; sanitises before sending
+src/main/sanitise.ts       report scrubbing: links, user paths, cookie files, cookie/header lines
+src/main/auth/index.ts     sign-in window, safeStorage-encrypted sessions, per-site temp --cookies file
 src/main/stats/            local site tally + the two opt-in upload streams
 src/main/store/terms.ts    first-run terms acceptance state
 src/main/store/settings.ts persisted settings, validated field-by-field on read
 
 src/preload/index.ts       contextBridge; the ONLY main↔renderer surface
 src/shared/types.ts        types shared across main, preload and renderer
+src/shared/sites.ts        which site a link belongs to, one-click sign-in sites, Netscape cookie file
 
 src/renderer/src/App.tsx   shell: terms + setup gates, toolbar, update banner
 src/renderer/src/SetupWizard.tsx  first-run Essentials download
@@ -184,6 +201,8 @@ src/renderer/src/strings.ts   ALL user-visible copy; never hardcode text in a co
 src/renderer/src/format.ts    byte, speed and duration formatting
 
 scripts/test-args.ts       offline assertions that settings reach the command line
+scripts/test-items.ts      offline assertions on item markers, their download args, NO_MEDIA
+scripts/test-auth.ts       offline assertions on site matching, the cookie file, --cookies, report scrubbing
 scripts/test-formats.ts    offline assertions on format shaping (generic/YouTube/HLS)
 scripts/test-embeds.ts     offline assertions on embed finding and media classifying
 scripts/test-stats.ts      runs the REAL stats module against a stub server
@@ -572,3 +591,5 @@ map; the other files are the territory.
 
 **Organize freely.** Extra `.md` files and folders are encouraged the moment a flat
 layout starts hurting — just record the layout in File Structure above.
+
+**Archive:** docs/changes-archive.md contains older changes.

@@ -133,6 +133,33 @@ to a shipped plugin without an app release.
 or host in a commit, a changelog or a test fixture is a traceable identifier for
 whoever reported it; this has already had to be cleaned up once.
 
+## X / Twitter (checked 2026-11-22, yt-dlp 2026.10.26)
+
+Stock yt-dlp handles X. Nothing site-specific is needed beyond the existing
+`impersonate: chrome` profile, and no cookies for public posts. Measured on real
+posts: x.com, twitter.com, mobile.x.com, `/i/status/`, `/i/web/status/`,
+`/video/1`, tracking query strings, fixupx and vxtwitter all resolve. A full
+download merges H.264 + AAC from HLS with our ffmpeg.
+
+Two gaps the app had, both fixed:
+
+- **Posts with several videos** come back as a playlist whose entries have no
+  URL of their own, so the picker dropped them all. Each entry now gets the
+  post URL plus `#tizo-item=N`, and the engine turns that into
+  `--playlist-items N` (`src/main/engine/item.ts`). X's own `/video/N` is not
+  used, because it counts photos too and picks the wrong clip in a mixed post.
+  The mechanism is generic: any extractor that returns inline entries gets it.
+- **"No video could be found in this tweet"** is now `NO_MEDIA`, with a message
+  saying the post may be marked sensitive. Before, it was `UNKNOWN`, which sent
+  the queue on a pointless page scan of X's app shell.
+
+**Sensitive/NSFW posts and protected accounts** need a signed-in session. Since
+2026-11-22 (not yet released) the failed row offers **"Sign in to x.com"**, and
+the session is then sent with the probe and the download for x.com/twitter.com
+only (see "Rung 1 as built" in [browser-engine.md](browser-engine.md)). Not yet
+tried with a real account. Broadcasts and Spaces work only while the media
+still exists.
+
 ## What no route reaches
 
 **DRM.** Widevine, PlayReady and FairPlay hold the key in a black box. No plugin,

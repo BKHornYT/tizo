@@ -14,6 +14,15 @@ import { engineStatus } from './engine/binaries'
 import { probe } from './engine/probe'
 import { cancelDownload, startDownload, type DownloadRequest } from './engine/download'
 import { defaultDownloadDir } from './paths'
+import {
+  acknowledgeNotice,
+  cancelSignIn,
+  finishSignIn,
+  signIn,
+  signInState,
+  signOut,
+  siteFor
+} from './auth'
 
 export function registerIpc(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle('app:versions', () => ({
@@ -162,6 +171,26 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
       langs.filter((l): l is string => typeof l === 'string')
     )
   })
+
+  // Signing in to sites. The renderer only ever sees site names and dates; the
+  // sessions themselves stay in the main process (src/main/auth).
+  ipcMain.handle('auth:state', () => signInState())
+  ipcMain.handle('auth:ackNotice', () => acknowledgeNotice())
+  ipcMain.handle('auth:signIn', async (_e, site: unknown) => {
+    if (typeof site !== 'string') return { ok: false, reason: 'bad-site' }
+    const result = await signIn(site, getWindow())
+    if (result.ok) {
+      // The rows that failed for want of this login get their second chance now.
+      const ffmpeg = await resolveFfmpeg()
+      queue.retryForSite(result.site, siteFor, ffmpeg.found)
+    }
+    return result
+  })
+  ipcMain.handle('auth:finish', () => finishSignIn())
+  ipcMain.handle('auth:cancel', () => cancelSignIn())
+  ipcMain.handle('auth:signOut', (_e, site: unknown) =>
+    typeof site === 'string' ? signOut(site) : signInState()
+  )
 
   ipcMain.handle('settings:get', () => loadSettings())
 

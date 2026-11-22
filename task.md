@@ -4,6 +4,34 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
 
 ## Now
 
+### ✅ X / Twitter support (2026-11-22) — built and tested, not released
+
+- [x] Public X videos already worked with stock yt-dlp + the `impersonate: chrome` profile
+      (every URL form tested; real download merged H.264+AAC)
+- [x] Multi-video posts reach the picker (`engine/item.ts`, `--playlist-items`)
+- [x] "No video could be found in this tweet" → `NO_MEDIA` with a sensitive-post hint, no page scan
+- [x] `npm run test:items` (22) + full `npm test` green; real-engine e2e against a live 4-video post
+- [ ] Owner: try X links in a dev build (`npm run dev`) or the next release; ship in v0.0.14
+- [x] Sensitive/NSFW posts and protected accounts → sign-in (below)
+
+### ✅ Sign in to sites — Phase 7 rung 1 (2026-11-22) — built and tested, not released
+
+Owner's choices (2026-11-22): button on the failed row **and** Settings; one-click common sites +
+any site; one-time notice instead of a terms re-prompt; build, then the owner says go before v0.0.14.
+
+- [x] Sign-in window (sandboxed, in-memory partition) + `safeStorage`-encrypted store (`src/main/auth/`)
+- [x] `--cookies` temp file for the matching site only, in probe + download, deleted after each run
+- [x] "Sign in to <site>" on AUTH_REQUIRED / AGE_RESTRICTED / NO_MEDIA rows; auto-retry on success
+- [x] Settings → Signed-in sites (list, sign in again, sign out, one-click + any site)
+- [x] Terms section + one-time notice; report scrubbing strips cookie paths/lines
+- [x] `npm run test:auth` (37) + full `npm test` + `electron-vite build` green; yt-dlp reads our cookie file
+- [ ] **Owner test (needs your login, a real window):** `npm run dev` → paste a sensitive X post →
+      "Sign in to x.com" → sign in → Done → the row retries and downloads. Also try Settings → YouTube
+      (Google may refuse embedded sign-in — expected risk)
+- [ ] Owner's go → bump to 0.0.14 and release (X fixes + sign-in)
+- [ ] Later: write refreshed cookies back after each run (sites rotate them); today a stale session
+      means "sign in again"
+
 ### ✅ P0 FIXED — the bundled plugin was disabling every extractor (2026-09-03)
 
 Worse than the ticket said. It was never a YouTube bug: **the plugin made all
@@ -525,6 +553,11 @@ stating on any download page rather than surprising people mid-setup.
 _Nothing blocked._
 
 ## Where things stand (2026-08-22)
+
+> **Superseded — this is the 2026-08-22 snapshot, not the current state.** It says "Released through
+> **v0.0.11**" and, a few lines down, "Not yet built: audio extraction, subtitles". Both are overtaken
+> in this same file: **v0.0.13** shipped (the `Now` section above) and `Phase 5 — Audio + subtitles` is
+> ✅ complete. Current state lives in `CLAUDE.md` → *Current State*, and the `Now` section above.
 
 Released through **v0.0.11**. Phases 0–5 and 8–9 are done; Phase 6 is next.
 

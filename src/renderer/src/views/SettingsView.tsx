@@ -7,6 +7,7 @@ import type {
   FileExistsRule,
   InstalledPlugin,
   Settings,
+  SignInState,
   SiteStat,
   SubtitleMode,
   UpdateState
@@ -15,6 +16,8 @@ import { AUDIO_BITRATES } from '../../../shared/types'
 import { strings } from '../strings'
 import { terms as termsCopy } from '../terms'
 import FeedbackDialog from '../components/FeedbackDialog'
+import SignInDialog from '../components/SignInDialog'
+import { KNOWN_SITES, siteKeyOf } from '../../../shared/sites'
 
 const SPEED_PRESETS: Array<{ label: string; value: number | null }> = [
   { label: strings.settings.unlimited, value: null },
@@ -66,6 +69,14 @@ export default function SettingsView({
   const [pending, setPending] = useState<Record<string, number>>({})
   const [feedback, setFeedback] = useState<FeedbackKind | null>(null)
   const [showTerms, setShowTerms] = useState(false)
+  const [signIns, setSignIns] = useState<SignInState | null>(null)
+  const [signingIn, setSigningIn] = useState<string | null>(null)
+  const [otherSite, setOtherSite] = useState('')
+  const otherKey = siteKeyOf(otherSite)
+
+  useEffect(() => {
+    void window.tizo.auth.state().then(setSignIns)
+  }, [])
 
   const reloadStats = (): void => {
     void window.tizo.stats.local().then(setSites)
@@ -262,6 +273,101 @@ export default function SettingsView({
           </button>
         </div>
       </Group>
+
+      <Group title={strings.signIn.section}>
+        <p className="-mt-1 text-xs leading-relaxed text-ink-500">{strings.signIn.sectionHint}</p>
+
+        {signIns && !signIns.available ? (
+          <p className="rounded-md bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-900">
+            {strings.signIn.unavailable}
+          </p>
+        ) : (
+          <>
+            {signIns && signIns.sites.length === 0 ? (
+              <p className="text-xs text-ink-400">{strings.signIn.none}</p>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {(signIns?.sites ?? []).map((s) => (
+                  <li key={s.site} className="flex items-center justify-between gap-3">
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm text-ink-900">{s.site}</span>
+                      <span className="block text-xs text-ink-500">
+                        {strings.signIn.signedInAt(new Date(s.signedInAt).toLocaleDateString())}
+                        {!s.confirmed && ` · ${strings.signIn.unverified}`}
+                      </span>
+                    </span>
+                    <span className="flex shrink-0 gap-2">
+                      <button
+                        onClick={() => setSigningIn(s.site)}
+                        className="rounded-md bg-ink-900/8 px-3 py-1.5 text-xs text-ink-700 transition hover:bg-ink-900/15"
+                      >
+                        {strings.signIn.again}
+                      </button>
+                      <button
+                        onClick={() => void window.tizo.auth.signOut(s.site).then(setSignIns)}
+                        className="rounded-md bg-ink-900/8 px-3 py-1.5 text-xs text-ink-700 transition hover:bg-ink-900/15"
+                      >
+                        {strings.signIn.signOut}
+                      </button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <div className="flex flex-wrap gap-2">
+              {KNOWN_SITES.filter((k) => !signIns?.sites.some((s) => s.site === k.site)).map((k) => (
+                <button
+                  key={k.site}
+                  onClick={() => setSigningIn(k.site)}
+                  className="rounded-md bg-brand-500 px-3 py-2 text-xs font-medium text-white transition hover:bg-brand-400"
+                >
+                  {k.label}
+                </button>
+              ))}
+            </div>
+
+            <form
+              className="flex items-center gap-2"
+              onSubmit={(e) => {
+                e.preventDefault()
+                if (otherKey) {
+                  setSigningIn(otherKey)
+                  setOtherSite('')
+                }
+              }}
+            >
+              <label className="shrink-0 text-xs text-ink-500" htmlFor="signin-other">
+                {strings.signIn.otherLabel}
+              </label>
+              <input
+                id="signin-other"
+                value={otherSite}
+                onChange={(e) => setOtherSite(e.target.value)}
+                placeholder={strings.signIn.otherPlaceholder}
+                className="min-w-0 flex-1 rounded-md border border-surface-line bg-white px-2.5 py-1.5 text-sm text-ink-900 outline-none focus:border-brand-500"
+              />
+              <button
+                type="submit"
+                disabled={!otherKey}
+                className="rounded-md bg-ink-900/8 px-3 py-1.5 text-xs text-ink-700 transition hover:bg-ink-900/15 disabled:opacity-40"
+              >
+                {otherKey ? strings.signIn.button(otherKey) : strings.signIn.go}
+              </button>
+            </form>
+          </>
+        )}
+      </Group>
+
+      {signingIn && (
+        <SignInDialog
+          site={signingIn}
+          onClose={() => {
+            setSigningIn(null)
+            void window.tizo.auth.state().then(setSignIns)
+          }}
+        />
+      )}
 
       <Group title={strings.settings.privacy}>
         <Toggle

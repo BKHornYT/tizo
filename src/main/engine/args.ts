@@ -1,4 +1,5 @@
 import type { AudioFormat, Settings } from '../../shared/types.ts'
+import { itemArgs, splitItem } from './item.ts'
 
 export interface SiteTuning {
   impersonate?: string | null
@@ -34,6 +35,17 @@ export interface ArgContext {
    * parsed. Replayed verbatim because these CDNs check them.
    */
   headers?: Record<string, string> | undefined
+  /**
+   * yt-dlp's -J output for this page, saved to a file (probeRaw()). Given, yt-dlp
+   * downloads from it (`--load-info-json`) instead of reading the page again.
+   * Its media links expire (YouTube: hours), so only pass a fresh one.
+   */
+  infoJson?: string | undefined
+  /**
+   * A temporary Netscape cookie file from a site the user signed in to
+   * (src/main/auth). Only ever the session for this URL's own site.
+   */
+  cookieFile?: string | undefined
 }
 
 /** Lossless targets, where a bitrate setting is meaningless and must be omitted. */
@@ -69,6 +81,8 @@ export function profileFor(
  */
 export function buildDownloadArgs(ctx: ArgContext): string[] {
   const { settings, profile } = ctx
+  // An entry of a playlist whose entries had no URL of their own (see item.ts).
+  const { url, item } = splitItem(ctx.url)
 
   const args = [
     // A stray user-level yt-dlp.conf could silently change output paths or
@@ -77,7 +91,8 @@ export function buildDownloadArgs(ctx: ArgContext): string[] {
     '--newline',
     '--no-colors',
     '--no-quiet',
-    '--no-playlist',
+    // Replaying the probe's JSON already names the one video, so no selection.
+    ...(item && !ctx.infoJson ? itemArgs(item) : ['--no-playlist']),
     '--progress-template',
     `download:${PROGRESS_MARK}%(progress)j`,
     '--print',
@@ -90,8 +105,10 @@ export function buildDownloadArgs(ctx: ArgContext): string[] {
 
   // 150 *bytes*, not characters — long unicode titles otherwise blow past
   // Windows' path limit once the folder is prepended.
-  const stem = `%(title).150B [%(id)s]${ctx.collisionSuffix ?? ''}`
-  args.push('-o', settings.folderPerDownload ? `%(title).100B [%(id)s]/${stem}.%(ext)s` : `${stem}.%(ext)s`)
+  // The id is capped too: the generic extractor makes it from the whole URL, and a long one ("video?id=…&title=…")
+  // pushed the name past the 255-byte limit ("File name too long", Tizo Vault 2026-10-07).
+  const stem = `%(title).150B [%(id).40B]${ctx.collisionSuffix ?? ''}`
+  args.push('-o', settings.folderPerDownload ? `%(title).100B [%(id).40B]/${stem}.%(ext)s` : `${stem}.%(ext)s`)
 
   switch (settings.onFileExists) {
     case 'overwrite':
@@ -199,6 +216,9 @@ export function buildDownloadArgs(ctx: ArgContext): string[] {
     if (ctx.ffmpegDir) args.push('--ffmpeg-location', ctx.ffmpegDir)
   }
 
-  args.push(ctx.url)
+  if (ctx.cookieFile) args.push('--cookies', ctx.cookieFile)
+
+  // One argument, so callers that slip flags in before the last one still work.
+  args.push(ctx.infoJson ? `--load-info-json=${ctx.infoJson}` : url)
   return args
 }

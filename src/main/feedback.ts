@@ -2,6 +2,7 @@ import { app, shell } from 'electron'
 import { resolveFfmpeg, resolveYtdlp } from './engine/binaries'
 import { isPortable } from './paths'
 import type { FeedbackDraft, FeedbackKind } from '../shared/types'
+import { sanitise } from './sanitise.ts'
 
 const REPO = 'https://github.com/BKHornYT/tizo'
 
@@ -9,22 +10,6 @@ const TEMPLATE: Record<FeedbackKind, string> = {
   site: 'site-request.yml',
   idea: 'suggestion.yml',
   bug: 'bug.yml'
-}
-
-/**
- * Strips anything that could identify a person or a specific video.
- *
- * yt-dlp's stderr routinely contains the full URL — which for a private or paid
- * video is exactly the thing that must not end up in a public issue tracker.
- * Paths are scrubbed too, since they carry the Windows username.
- */
-function sanitise(text: string): string {
-  return text
-    .replace(/https?:\/\/\S+/gi, '[link removed]')
-    .replace(/[A-Za-z]:\\Users\\[^\\\s]+/gi, '[path removed]')
-    .replace(/\/(?:home|Users)\/[^/\s]+/gi, '[path removed]')
-    .trim()
-    .slice(0, 1200)
 }
 
 function hostOf(url: string): string {

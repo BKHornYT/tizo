@@ -1,6 +1,8 @@
 # The embedded browser — plan
 
-**Status:** proposal, nothing built. Written 2026-08-21.
+**Status:** written 2026-08-21 as a proposal. **Rung 1 is built (2026-11-22,
+`src/main/auth/`, not yet released)**, see "Rung 1 as built" below. Rungs 2–3 exist as the
+experimental discovery rung (`src/main/engine/browser.ts`, Settings > Experimental).
 
 Electron already contains Chromium. This document is about using it for three
 things it is uniquely good at — logging in, watching what a player actually
@@ -78,6 +80,48 @@ CAPTCHA. Headless is for rung 2.
 
 - **New:** one window, a cookie exporter, a per-domain "signed in" record
 - **Unchanged:** discovery, transfer, progress, resume, cancel, the queue
+
+#### Rung 1 as built (2026-11-22)
+
+One change from the plan above, forced by the "to verify before building"
+question in Security: **Electron does not encrypt a partition's cookies at rest**
+unless the `EnableCookieEncryption` fuse is flipped, and this build sets no
+fuses. A `persist:` partition would leave sessions in plain SQLite. So:
+
+- The sign-in window uses a fresh **in-memory** partition (`tizo-signin-<uuid>`),
+  shared with nothing. It is sandboxed with no preload, every permission prompt
+  and file download is refused, and popups (for "Sign in with Google/Apple")
+  inherit the same settings. It presents itself as plain Chrome (Electron and
+  app tokens are stripped from the user agent), because Google refuses
+  embedded browsers.
+- On **Done** (or closing the window) its cookies are read, and for the one-click
+  sites checked for a signed-in marker (`auth_token` on X, `sessionid` on
+  Instagram, ...). No marker means nothing is saved. Other sites are saved
+  "unverified".
+- The store is `signins.bin` in the data folder, the whole JSON encrypted with
+  `safeStorage` (DPAPI on Windows). When only the plain-text fallback exists
+  (Linux without a keyring), sign-in is **refused**. A file that will not
+  decrypt (a portable copy on another PC or account) reads as "signed in
+  nowhere".
+- Signing in again restores the saved cookies into the new window first.
+- `cookieFileFor(url)` writes a Netscape file to the system temp folder (owner
+  only) **only when the URL's site equals a signed-in site** (`shared/sites.ts`
+  `siteKeyOf`, with aliases such as twitter.com → x.com). It is passed as
+  `--cookies` to the probe (playlist check, single probe, inspectLink) and the
+  download, then deleted when each run ends.
+- UI: a **"Sign in to <site>"** button on rows failing with `AUTH_REQUIRED`,
+  `AGE_RESTRICTED` or `NO_MEDIA` (an X post marked sensitive reads as "no video"
+  when signed out), plus **Settings → Signed-in sites** (one-click X, Instagram,
+  Facebook, TikTok, YouTube, Reddit, any other site, sign out, sign in again).
+  On success, that site's failed rows are retried automatically.
+- Terms: a new "If you sign in to a site" section, with **no** `TERMS_VERSION`
+  bump. Instead a one-time notice appears before the first sign-in window
+  (owner's choice, 2026-11-22).
+- Feedback: `src/main/sanitise.ts` strips cookie-file paths and any
+  cookie/header-shaped line before a report is built (`npm run test:auth`).
+
+Not verified from here: the full round trip in a real app window with a real
+account. That is the owner's test.
 
 ### Rung 2 — Discovery by watching the network
 

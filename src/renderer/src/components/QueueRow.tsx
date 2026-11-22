@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { QueueItem } from '../../../shared/types'
 import { bytes, duration, speed } from '../format'
 import { strings } from '../strings'
+import { siteKeyOf } from '../../../shared/sites'
 
 const ACTIVE: QueueItem['state'][] = ['downloading', 'processing']
 
@@ -12,16 +13,24 @@ const ACTIVE: QueueItem['state'][] = ['downloading', 'processing']
  */
 const REPORTABLE = new Set(['UNSUPPORTED_SITE', 'UNKNOWN'])
 
+/**
+ * Failures a login can fix. NO_MEDIA is here because on X a post marked
+ * sensitive reads as "no video" to anyone signed out.
+ */
+const SIGN_IN_FIXES = new Set(['AUTH_REQUIRED', 'AGE_RESTRICTED', 'NO_MEDIA'])
+
 export default function QueueRow({
   item,
   hasFfmpeg,
   onChoose,
-  onReport
+  onReport,
+  onSignIn
 }: {
   item: QueueItem
   hasFfmpeg: boolean
   onChoose: (item: QueueItem) => void
   onReport: (item: QueueItem) => void
+  onSignIn: (site: string) => void
 }): React.JSX.Element {
   const active = ACTIVE.includes(item.state)
   const pct = item.percent ?? 0
@@ -85,7 +94,13 @@ export default function QueueRow({
           </div>
         )}
 
-        <Actions item={item} blocked={blocked} onChoose={onChoose} onReport={onReport} />
+        <Actions
+          item={item}
+          blocked={blocked}
+          onChoose={onChoose}
+          onReport={onReport}
+          onSignIn={onSignIn}
+        />
       </div>
     </li>
   )
@@ -264,14 +279,18 @@ function Actions({
   item,
   blocked,
   onChoose,
-  onReport
+  onReport,
+  onSignIn
 }: {
   item: QueueItem
   blocked: boolean
   onChoose: (item: QueueItem) => void
   onReport: (item: QueueItem) => void
+  onSignIn: (site: string) => void
 }): React.JSX.Element {
   const q = window.tizo.queue
+  const signInSite =
+    item.state === 'error' && item.error && SIGN_IN_FIXES.has(item.error.code) ? siteKeyOf(item.url) : null
 
   return (
     <div className="flex shrink-0 items-center gap-1">
@@ -305,6 +324,12 @@ function Actions({
 
       {(item.state === 'error' || item.state === 'cancelled') && item.formats.length > 0 && (
         <Action onClick={() => void q.start(item.id)}>{strings.queue.retry}</Action>
+      )}
+
+      {signInSite && (
+        <Action primary onClick={() => onSignIn(signInSite)}>
+          {strings.signIn.button(signInSite)}
+        </Action>
       )}
 
       {item.state === 'error' && item.error && REPORTABLE.has(item.error.code) && (

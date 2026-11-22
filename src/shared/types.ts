@@ -28,6 +28,7 @@ export type ErrorCode =
   | 'UNSUPPORTED_SITE'
   | 'INVALID_URL'
   | 'UNAVAILABLE'
+  | 'NO_MEDIA'
   | 'AUTH_REQUIRED'
   | 'AGE_RESTRICTED'
   | 'GEO_BLOCKED'
@@ -250,6 +251,29 @@ export interface Settings {
    */
   experimentalDiscovery: boolean
 }
+
+// --- Signing in to sites ---------------------------------------------------
+
+/** One site the user is signed in to. Never carries the session itself. */
+export interface SignedInSite {
+  site: string
+  signedInAt: string
+  /** False for a site we cannot check (not a one-click site): saved, unverified. */
+  confirmed: boolean
+}
+
+export interface SignInState {
+  /** False when the system has no secure storage; sign-in is then refused. */
+  available: boolean
+  /** The one-time "sessions are stored on this computer" notice was shown. */
+  noticeSeen: boolean
+  sites: SignedInSite[]
+}
+
+export type SignInResult =
+  | { ok: true; site: string; confirmed: boolean }
+  | { ok: false; reason: 'bad-site' | 'unavailable' | 'busy' | 'cancelled' }
+  | { ok: false; reason: 'not-signed-in'; site: string }
 
 // --- Download queue --------------------------------------------------------
 

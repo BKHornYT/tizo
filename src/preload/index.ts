@@ -12,6 +12,8 @@ import type {
   TermsState,
   UpdateState,
   Settings,
+  SignInResult,
+  SignInState,
   SetupPlan,
   SetupProgress
 } from '../shared/types'
@@ -121,6 +123,18 @@ const api = {
         ipcRenderer.off('queue:update', listener)
       }
     }
+  },
+
+  auth: {
+    state: (): Promise<SignInState> => ipcRenderer.invoke('auth:state'),
+    ackNotice: (): Promise<SignInState> => ipcRenderer.invoke('auth:ackNotice'),
+    /** Opens the sign-in window; resolves when it closes. */
+    signIn: (site: string): Promise<SignInResult> => ipcRenderer.invoke('auth:signIn', site),
+    /** "Done": closes the window and keeps the session. */
+    finish: (): Promise<void> => ipcRenderer.invoke('auth:finish'),
+    /** Closes the window and keeps nothing. */
+    cancel: (): Promise<void> => ipcRenderer.invoke('auth:cancel'),
+    signOut: (site: string): Promise<SignInState> => ipcRenderer.invoke('auth:signOut', site)
   },
 
   getSettings: (): Promise<Settings> => ipcRenderer.invoke('settings:get'),

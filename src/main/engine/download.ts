@@ -7,6 +7,7 @@ import { binaryMissing, classifyError } from './errors'
 import { buildDownloadArgs, profileFor, FILE_MARK, PROGRESS_MARK, type SiteTuning } from './args'
 import { loadSettings } from '../store/settings'
 import { loadManifest } from '../components/manifest'
+import { cookieFileFor } from '../auth'
 import type { AudioFormat, EngineError, ProgressEvent, Settings } from '../../shared/types'
 
 interface RawProgress {
@@ -46,6 +47,8 @@ export interface DownloadRequest {
   referer?: string
   /** Headers captured from a watched player, replayed on the download. */
   headers?: Record<string, string>
+  /** A fresh probeRaw() JSON saved to a file: download from it, skip re-reading the page. Ignored with directUrl. */
+  infoJson?: string
 }
 
 export type StartResult =
@@ -181,8 +184,13 @@ export async function startDownload(
   const profile = await siteProfile(req.url)
   const ffmpegDir = ffmpeg.path && ffmpeg.source === 'managed' ? dirname(ffmpeg.path) : null
 
+  // The signed-in session for the page's own site, if any. Deleted when the job
+  // ends, by every exit below.
+  const cookies = cookieFileFor(req.url)
+
   const effectiveRule = req.resolveConflict ?? settings.onFileExists
   const base = {
+    cookieFile: cookies?.path,
     url: target,
     format: req.format,
     outDir,
@@ -194,7 +202,8 @@ export async function startDownload(
     impersonateTarget: req.impersonateTarget ?? null,
     extractAudio: req.extractAudio,
     subLangs: req.subLangs ?? [],
-    headers: req.headers
+    headers: req.headers,
+    infoJson: req.directUrl ? undefined : req.infoJson
   }
 
   let collisionSuffix: string | undefined
@@ -204,7 +213,10 @@ export async function startDownload(
       buildDownloadArgs({ ...base, settings })
     )
     if (predicted && existsSync(predicted)) {
-      if (effectiveRule === 'ask') return { ok: false, conflict: { path: predicted } }
+      if (effectiveRule === 'ask') {
+        cookies?.cleanup()
+        return { ok: false, conflict: { path: predicted } }
+      }
       collisionSuffix = freeSuffix(predicted)
     }
   }
@@ -240,17 +252,20 @@ export async function startDownload(
       } catch {
         return // a torn or non-finite JSON line is not worth killing the job over
       }
-      const total = raw.total_bytes ?? raw.total_bytes_estimate ?? null
-      const downloaded = raw.downloaded_bytes ?? null
+      // yt-dlp's fields are not always numbers (a `_percent` of false was seen with
+      // --load-info-json, 2026-10-12): anything else counts as unknown.
+      const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
+      const total = num(raw.total_bytes) ?? num(raw.total_bytes_estimate)
+      const downloaded = num(raw.downloaded_bytes)
       lastFilename = raw.filename ?? lastFilename
       emit({
         jobId,
         status: raw.status === 'finished' ? 'processing' : 'downloading',
-        percent: raw._percent ?? (total && downloaded ? (downloaded / total) * 100 : null),
+        percent: num(raw._percent) ?? (total && downloaded ? (downloaded / total) * 100 : null),
         downloadedBytes: downloaded,
         totalBytes: total,
-        speed: raw.speed ?? null,
-        eta: raw.eta ?? null,
+        speed: num(raw.speed),
+        eta: num(raw.eta),
         filename: lastFilename
       })
       return
@@ -286,6 +301,7 @@ export async function startDownload(
   const done = (event: Omit<ProgressEvent, 'jobId'>): void => emit({ jobId, ...event })
 
   child.on('error', (err) => {
+    cookies?.cleanup()
     jobs.delete(jobId)
     done({
       status: 'error',
@@ -300,6 +316,7 @@ export async function startDownload(
   })
 
   child.on('close', (code) => {
+    cookies?.cleanup()
     const job = jobs.get(jobId)
     jobs.delete(jobId)
 

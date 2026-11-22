@@ -323,6 +323,28 @@ export function cancel(id: string): void {
   }
 }
 
+/**
+ * After signing in to a site, try that site's failed rows again: a row that
+ * never got formats is probed afresh (the login wall was in the probe), and one
+ * that failed while downloading is queued again. Rows for other sites are left
+ * alone. `siteOf` is passed in so the queue does not import the auth store.
+ */
+export function retryForSite(site: string, siteOf: (url: string) => string | null, hasFfmpeg: boolean): number {
+  let retried = 0
+  for (const item of snapshot()) {
+    if (item.state !== 'error' || siteOf(item.url) !== site) continue
+    retried++
+    if (item.formats.length > 0 && item.formatId) {
+      patch(item.id, { state: 'queued', error: null, percent: null })
+    } else {
+      patch(item.id, { state: 'probing', error: null })
+      void runProbe(item.id, hasFfmpeg)
+    }
+  }
+  if (retried > 0) void pump()
+  return retried
+}
+
 /** Queue one item. Actual starting is left to the concurrency pump. */
 export function start(id: string): void {
   const item = items.get(id)
