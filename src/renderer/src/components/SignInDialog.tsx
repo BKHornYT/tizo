@@ -7,6 +7,8 @@ type Phase =
   | { kind: 'unavailable' }
   | { kind: 'notice' }
   | { kind: 'waiting' }
+  /** After a file import was abandoned: open the window again, or pick a file. */
+  | { kind: 'importOrWindow' }
   | { kind: 'result'; result: SignInResult }
 
 /**
@@ -25,12 +27,34 @@ export default function SignInDialog({
 }): React.JSX.Element {
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' })
   const started = useRef(false)
+  // Set while switching from the window to a file import, so the window's own
+  // "cancelled" result does not close the dialog underneath the file picker.
+  const importing = useRef(false)
 
   const begin = (): void => {
     if (started.current) return
     started.current = true
     setPhase({ kind: 'waiting' })
-    void window.tizo.auth.signIn(site).then((result) => setPhase({ kind: 'result', result }))
+    void window.tizo.auth.signIn(site).then((result) => {
+      if (!importing.current) setPhase({ kind: 'result', result })
+    })
+  }
+
+  const importInstead = (): void => {
+    importing.current = true
+    void window.tizo.auth
+      .cancel()
+      .then(() => window.tizo.auth.importFile(site))
+      .then((result) => {
+        if (!result.ok && result.reason === 'cancelled') {
+          // Picker closed without a file: back to choosing, not out of the dialog.
+          importing.current = false
+          started.current = false
+          setPhase({ kind: 'importOrWindow' })
+          return
+        }
+        setPhase({ kind: 'result', result })
+      })
   }
 
   useEffect(() => {
@@ -91,8 +115,43 @@ export default function SignInDialog({
         </>
       )
       break
+    case 'importOrWindow':
+      body = (
+        <>
+          <p className="text-sm leading-relaxed text-ink-700">{strings.signIn.importHint}</p>
+          <p className="mt-2 text-xs leading-relaxed text-ink-500">{strings.signIn.importNote}</p>
+        </>
+      )
+      buttons = (
+        <>
+          <button onClick={() => onClose(false)} className={secondary}>
+            {strings.signIn.cancel}
+          </button>
+          <button onClick={begin} className={secondary}>
+            {strings.signIn.button(site)}
+          </button>
+          <button onClick={importInstead} className={primary}>
+            {strings.signIn.importButton}
+          </button>
+        </>
+      )
+      break
     case 'waiting':
-      body = <p className="text-sm leading-relaxed text-ink-700">{strings.signIn.waiting}</p>
+      body = (
+        <>
+          <p className="text-sm leading-relaxed text-ink-700">{strings.signIn.waiting}</p>
+          <div className="mt-4 rounded-lg bg-ink-900/5 px-3 py-2.5">
+            <p className="text-xs leading-relaxed text-ink-700">{strings.signIn.importHint}</p>
+            <button
+              onClick={importInstead}
+              className="mt-2 rounded-md bg-ink-900/8 px-3 py-1.5 text-xs text-ink-700 transition hover:bg-ink-900/15"
+            >
+              {strings.signIn.importButton}
+            </button>
+            <p className="mt-2 text-[11px] leading-relaxed text-ink-500">{strings.signIn.importNote}</p>
+          </div>
+        </>
+      )
       buttons = (
         <>
           <button onClick={() => void window.tizo.auth.cancel()} className={secondary}>
@@ -107,12 +166,20 @@ export default function SignInDialog({
     case 'result': {
       const r = phase.result
       const message = r.ok
-        ? r.confirmed
-          ? strings.signIn.success(r.site)
-          : strings.signIn.successUnverified(r.site)
+        ? r.imported
+          ? strings.signIn.imported(r.site)
+          : r.confirmed
+            ? strings.signIn.success(r.site)
+            : strings.signIn.successUnverified(r.site)
         : r.reason === 'not-signed-in'
-          ? strings.signIn.notSignedIn(r.site)
-          : r.reason === 'unavailable'
+          ? importing.current
+            ? strings.signIn.notSignedInFile(r.site)
+            : strings.signIn.notSignedIn(r.site)
+          : r.reason === 'no-cookies'
+            ? strings.signIn.noCookies(r.site)
+            : r.reason === 'bad-file'
+              ? strings.signIn.badFile
+              : r.reason === 'unavailable'
             ? strings.signIn.unavailable
             : r.reason === 'busy'
               ? strings.signIn.busy

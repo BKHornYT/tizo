@@ -137,6 +137,51 @@ export function liveCookies(cookies: StoredCookie[], now = Date.now() / 1000): S
 }
 
 /**
+ * Reads a Netscape cookies.txt, the format browser extensions such as
+ * "Get cookies.txt LOCALLY" export. The fallback for logins the sign-in window
+ * cannot do ("Continue with Google" on X): the user signs in in their own
+ * browser, exports the file, and imports it.
+ *
+ * Lenient about what it skips (comments, blank or short lines), strict about
+ * what it keeps: seven tab-separated fields with a domain and a name.
+ */
+export function fromNetscape(text: string): StoredCookie[] {
+  const out: StoredCookie[] = []
+  for (const raw of text.replace(/^﻿/, '').split(/\r?\n/)) {
+    let line = raw
+    let httpOnly = false
+    if (line.startsWith('#HttpOnly_')) {
+      httpOnly = true
+      line = line.slice('#HttpOnly_'.length)
+    } else if (line.startsWith('#') || !line.trim()) {
+      continue
+    }
+    const f = line.split('\t')
+    if (f.length < 7) continue
+    const [domain, sub, path, secure, expiry, name] = f
+    const value = f.slice(6).join('\t')
+    if (!domain || !name || /[\r\n]/.test(value)) continue
+    const exp = Number(expiry)
+    out.push({
+      name,
+      value,
+      domain,
+      path: path || '/',
+      secure: secure?.toUpperCase() === 'TRUE',
+      httpOnly,
+      hostOnly: sub?.toUpperCase() !== 'TRUE' && !domain.startsWith('.'),
+      ...(Number.isFinite(exp) && exp > 0 ? { expirationDate: exp } : {})
+    })
+  }
+  return out
+}
+
+/** The cookies in `cookies` that belong to `site` (by registrable domain). */
+export function cookiesForSite(cookies: StoredCookie[], site: string): StoredCookie[] {
+  return cookies.filter((c) => siteKeyOf(c.domain.replace(/^\./, '')) === site)
+}
+
+/**
  * The Netscape cookie file yt-dlp reads with `--cookies`.
  *
  * A tab or newline inside a field would break the line format and could forge an

@@ -96,6 +96,16 @@ if (sniffTarget) {
   // starting a rival copy that would fight over the download queue and settings.
   app.quit()
 } else {
+  /*
+   * FedCM off, for the sign-in window (src/main/auth). Chromium exposes
+   * `IdentityCredential`, so Google's "Continue with Google" button on X and
+   * elsewhere takes the FedCM route, but Electron ships no FedCM prompt and the
+   * call fails ("An unexpected error occurred" on X, seen 2026-11-22). Without
+   * the feature Google's script falls back to its classic popup, which the
+   * sign-in window allows. Nothing else in the app uses FedCM.
+   */
+  app.commandLine.appendSwitch('disable-blink-features', 'FedCm')
+
   let mainWindow: BrowserWindow | null = null
 
   app.on('second-instance', () => {

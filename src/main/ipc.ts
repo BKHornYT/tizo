@@ -18,6 +18,7 @@ import {
   acknowledgeNotice,
   cancelSignIn,
   finishSignIn,
+  importCookieFile,
   signIn,
   signInState,
   signOut,
@@ -181,6 +182,15 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
     const result = await signIn(site, getWindow())
     if (result.ok) {
       // The rows that failed for want of this login get their second chance now.
+      const ffmpeg = await resolveFfmpeg()
+      queue.retryForSite(result.site, siteFor, ffmpeg.found)
+    }
+    return result
+  })
+  ipcMain.handle('auth:importFile', async (_e, site: unknown) => {
+    if (typeof site !== 'string') return { ok: false, reason: 'bad-site' }
+    const result = await importCookieFile(site, getWindow())
+    if (result.ok) {
       const ffmpeg = await resolveFfmpeg()
       queue.retryForSite(result.site, siteFor, ffmpeg.found)
     }

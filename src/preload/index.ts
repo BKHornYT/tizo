@@ -130,6 +130,8 @@ const api = {
     ackNotice: (): Promise<SignInState> => ipcRenderer.invoke('auth:ackNotice'),
     /** Opens the sign-in window; resolves when it closes. */
     signIn: (site: string): Promise<SignInResult> => ipcRenderer.invoke('auth:signIn', site),
+    /** Picks a cookies.txt exported from the user's own browser; keeps `site`'s cookies only. */
+    importFile: (site: string): Promise<SignInResult> => ipcRenderer.invoke('auth:importFile', site),
     /** "Done": closes the window and keeps the session. */
     finish: (): Promise<void> => ipcRenderer.invoke('auth:finish'),
     /** Closes the window and keeps nothing. */

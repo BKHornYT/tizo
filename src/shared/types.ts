@@ -271,9 +271,10 @@ export interface SignInState {
 }
 
 export type SignInResult =
-  | { ok: true; site: string; confirmed: boolean }
-  | { ok: false; reason: 'bad-site' | 'unavailable' | 'busy' | 'cancelled' }
-  | { ok: false; reason: 'not-signed-in'; site: string }
+  | { ok: true; site: string; confirmed: boolean; imported?: boolean }
+  | { ok: false; reason: 'bad-site' | 'unavailable' | 'busy' | 'cancelled' | 'bad-file' }
+  /** `no-cookies`: an imported file held nothing for this site. */
+  | { ok: false; reason: 'not-signed-in' | 'no-cookies'; site: string }
 
 // --- Download queue --------------------------------------------------------
 

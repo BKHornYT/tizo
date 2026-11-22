@@ -97,6 +97,21 @@ ok('NO_MEDIA mentions sensitive posts', /sensitive/i.test(none.message))
 // NO_MEDIA must not be UNKNOWN/UNSUPPORTED_SITE: those two send the queue on to
 // scan the page, and X's page is an app shell with nothing to find.
 ok('NO_MEDIA does not trigger the page scan', none.code !== 'UNKNOWN' && none.code !== 'UNSUPPORTED_SITE')
+// The exact line yt-dlp 2026.10.26 printed for a sensitive post's /video/1 link
+// while signed out (2026-11-22). It used to fall through to UNKNOWN, so the row
+// showed a generic failure and no "Sign in to x.com" button.
+ok(
+  '"Video #1 is unavailable" on X is NO_MEDIA',
+  classifyError('ERROR: [twitter] 2102231418457985518: Video #1 is unavailable').code === 'NO_MEDIA'
+)
+ok(
+  '"Media #2 is not a video" on X is NO_MEDIA',
+  classifyError('ERROR: [twitter] 1: Media #2 is not a video').code === 'NO_MEDIA'
+)
+ok(
+  '"Video #1 is unavailable" from another site is not claimed for X',
+  classifyError('ERROR: [vimeo] 1: Video #1 is unavailable').code !== 'NO_MEDIA'
+)
 ok(
   'a generic "no formats" error is left alone',
   classifyError('ERROR: [generic] x: No video formats found!').code !== 'NO_MEDIA'

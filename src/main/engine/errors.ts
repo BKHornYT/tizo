@@ -18,9 +18,14 @@ const PATTERNS: Array<{ code: ErrorCode; test: RegExp; message: string }> = [
      * signed-out visitors and reports the post as having none. Classified, not
      * left as UNKNOWN, because UNKNOWN sends the queue on to scan the page, and
      * X's page is an app shell with nothing to find.
+     *
+     * A link ending in `/video/N` takes a different branch in yt-dlp and says
+     * "Video #N is unavailable" for the same hidden post (seen 2026-11-22 on a
+     * sensitive post: no sign-in button appeared, only a generic failure). "Media
+     * #N is not a video" is that branch landing on a photo.
      */
     code: 'NO_MEDIA',
-    test: /no video could be found in this (tweet|post)/i,
+    test: /no video could be found in this (tweet|post)|\[twitter\][^\n]*(video #\d+ is unavailable|media #\d+ is not a video)/i,
     message:
       'This post has no video we can see. If it is marked sensitive, X only shows it to signed-in accounts.'
   },

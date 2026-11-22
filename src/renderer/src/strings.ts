@@ -91,6 +91,16 @@ export const strings = {
       `Saved the login for ${site}. Tizo cannot check this site, so if downloads still fail, sign in again.`,
     notSignedIn: (site: string) =>
       `It does not look like signing in to ${site} finished, so nothing was saved. Try again and click Done only once you are signed in.`,
+    importHint:
+      '“Continue with Google” or Apple not working in this window? Sign in to the site in your normal browser instead, export its cookies with an extension such as “Get cookies.txt LOCALLY”, and import that file.',
+    importButton: 'Import a cookies file',
+    importNote:
+      'That file holds your login. Delete it once it is imported. Tizo keeps its own encrypted copy.',
+    imported: (site: string) => `Imported the login for ${site}. Failed downloads from it are being tried again.`,
+    noCookies: (site: string) => `That file has no cookies for ${site}. Export it while you are on ${site}.`,
+    notSignedInFile: (site: string) =>
+      `That file has cookies for ${site}, but no login. Sign in to ${site} in your browser first, then export again.`,
+    badFile: 'That does not look like a cookies.txt file.',
     busy: 'A sign-in window is already open.',
     badSite: 'That does not look like a website address.'
   },

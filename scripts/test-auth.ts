@@ -11,6 +11,8 @@
  */
 import {
   KNOWN_SITES,
+  cookiesForSite,
+  fromNetscape,
   liveCookies,
   loginUrlFor,
   looksSignedIn,
@@ -95,6 +97,45 @@ ok('a session cookie gets expiry 0', lang[4] === '0')
 ok('every cookie line has seven fields', lines.filter((l) => l && !l.startsWith('# ')).every((l) => l.split('\t').length === 7))
 ok('expired cookies are not written', !file.includes('\told\t'))
 ok('a cookie with a tab or newline is dropped, not split', !file.includes('evil') && !file.includes('injected'))
+
+// --- importing a cookies.txt from the user's own browser --------------------
+
+// Shaped like a "Get cookies.txt LOCALLY" export: CRLF, a BOM, comments, a
+// #HttpOnly_ line, other sites mixed in, and a host-only cookie.
+const exported =
+  '﻿# Netscape HTTP Cookie File\r\n' +
+  '# https://curl.haxx.se/rfc/cookie_spec.html\r\n' +
+  '\r\n' +
+  `#HttpOnly_.x.com\tTRUE\t/\tTRUE\t${Math.floor(future)}\tauth_token\tabc123\r\n` +
+  `.x.com\tTRUE\t/\tTRUE\t${Math.floor(future)}\tct0\tcsrf\r\n` +
+  'x.com\tFALSE\t/\tTRUE\t0\tlang\ten\r\n' +
+  `.google.com\tTRUE\t/\tTRUE\t${Math.floor(future)}\tSID\tgoogle-secret\r\n` +
+  `.x.com\tTRUE\t/\tTRUE\t${Math.floor(past)}\tstale\told\r\n` +
+  'short\tline\r\n'
+const parsed = fromNetscape(exported)
+ok('a real-shaped export parses every cookie line', parsed.length === 5)
+const token = parsed.find((x) => x.name === 'auth_token')
+ok('#HttpOnly_ is read as httpOnly with the dot domain', token?.httpOnly === true && token.domain === '.x.com')
+ok('expiry is kept', token?.expirationDate === Math.floor(future))
+const langC = parsed.find((x) => x.name === 'lang')
+ok('a host-only line is host-only', langC?.hostOnly === true && langC.expirationDate === undefined)
+const forX = liveCookies(cookiesForSite(parsed, 'x.com'))
+ok('only the chosen site is kept', forX.every((x) => x.domain.replace(/^\./, '') === 'x.com'))
+ok('another site in the same file is dropped', !forX.some((x) => x.name === 'SID'))
+ok('expired cookies in the file are dropped', !forX.some((x) => x.name === 'stale'))
+ok('an imported X login is recognised', looksSignedIn('x.com', forX) === true)
+ok(
+  'an export with no login is recognised as such',
+  looksSignedIn('x.com', liveCookies(cookiesForSite(fromNetscape('.x.com\tTRUE\t/\tTRUE\t0\tguest_id\tg\n'), 'x.com'))) ===
+    false
+)
+ok('a file that is not cookies.txt parses to nothing', fromNetscape('hello\nworld\n{"a":1}').length === 0)
+// Round trip: what was imported is what yt-dlp gets.
+const round = fromNetscape(toNetscape(forX))
+ok(
+  'import → yt-dlp file → import keeps every cookie',
+  round.length === forX.length && round.every((r) => forX.some((f) => f.name === r.name && f.value === r.value))
+)
 
 // --- the --cookies flag -----------------------------------------------------
 

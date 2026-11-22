@@ -19,13 +19,22 @@
  * Sessions must never reach feedback or telemetry. Neither path reads anything
  * from here, and feedback.ts strips cookie-file paths from error text as well.
  */
-import { app, BrowserWindow, safeStorage, session, type Cookie } from 'electron'
+import { app, BrowserWindow, dialog, safeStorage, session, type Cookie } from 'electron'
 import { randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { dataDir } from '../paths'
-import { liveCookies, loginUrlFor, looksSignedIn, siteKeyOf, toNetscape, type StoredCookie } from '../../shared/sites'
+import {
+  cookiesForSite,
+  fromNetscape,
+  liveCookies,
+  loginUrlFor,
+  looksSignedIn,
+  siteKeyOf,
+  toNetscape,
+  type StoredCookie
+} from '../../shared/sites'
 import type { SignInResult, SignInState, SignedInSite } from '../../shared/types'
 
 interface Store {
@@ -256,6 +265,54 @@ export async function signIn(rawSite: string, parent: BrowserWindow | null): Pro
       resolve({ ok: true, site, confirmed: confirmed === true })
     })
   })
+}
+
+/**
+ * The fallback for logins the sign-in window cannot do: the user signs in in
+ * their own browser, exports a cookies.txt, and picks it here. Only the cookies
+ * for `site` are kept, so a file exported from every open tab does not quietly
+ * store sessions for sites nobody asked about. The file itself is left where
+ * it is; the user is told it holds their login.
+ */
+export async function importCookieFile(rawSite: string, parent: BrowserWindow | null): Promise<SignInResult> {
+  const site = siteKeyOf(rawSite)
+  if (!site) return { ok: false, reason: 'bad-site' }
+  if (!encryptionAvailable()) return { ok: false, reason: 'unavailable' }
+
+  const options = {
+    title: `Cookies file for ${site}`,
+    filters: [
+      { name: 'Cookies file', extensions: ['txt'] },
+      { name: 'All files', extensions: ['*'] }
+    ],
+    properties: ['openFile' as const]
+  }
+  const picked = parent && !parent.isDestroyed()
+    ? await dialog.showOpenDialog(parent, options)
+    : await dialog.showOpenDialog(options)
+  const file = picked.filePaths[0]
+  if (picked.canceled || !file) return { ok: false, reason: 'cancelled' }
+
+  let cookies: StoredCookie[]
+  try {
+    // A cookies.txt is kilobytes; anything far larger is not one.
+    if (statSync(file).size > 5 * 1024 * 1024) return { ok: false, reason: 'bad-file' }
+    cookies = liveCookies(cookiesForSite(fromNetscape(readFileSync(file, 'utf8')), site))
+  } catch {
+    return { ok: false, reason: 'bad-file' }
+  }
+  if (cookies.length === 0) return { ok: false, reason: 'no-cookies', site }
+
+  const confirmed = looksSignedIn(site, cookies)
+  if (confirmed === false) return { ok: false, reason: 'not-signed-in', site }
+  try {
+    const store = load()
+    store.sites[site] = { signedInAt: new Date().toISOString(), confirmed: confirmed === true, cookies }
+    save(store)
+  } catch {
+    return { ok: false, reason: 'unavailable' }
+  }
+  return { ok: true, site, confirmed: confirmed === true, imported: true }
 }
 
 /**
