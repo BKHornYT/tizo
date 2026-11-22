@@ -11,6 +11,10 @@ Newest first. One entry per change, using this format:
 
 ---
 
+## 2026-11-22 — v0.0.18: pasting into the sign-in boxes works
+**What:** owner: pasting into the auth_token / ct0 boxes only flashed "No links found in what you pasted". The queue's paste-anywhere handler (`views/Queue.tsx`, a `window` paste listener) took every paste and called `preventDefault()`, including pastes into text boxes. It now ignores pastes whose target is an input, a textarea or contenteditable, so those go to the box and paste-anywhere still works everywhere else. Full `npm test` + build green. Released on the owner's "quickly fix and publish".
+**Files:** src/renderer/src/views/Queue.tsx, package.json, package-lock.json, changes.md
+
 ## 2026-11-22 — v0.0.17: plain "auth_token / ct0" boxes, login page only on request
 **What:** owner's v0.0.16 feedback, with screenshots: the F12 Network-tab tutorial "does not make sense", so just say "put auth token here, put ct0 here"; and do not auto-open the Google/login window, make it an option. The sign-in dialog now opens on a **form** (after the one-time notice): one line, "open x.com signed in, F12 → Application → Cookies → https://x.com, copy each value", then one labelled box per cookie. `KnownSite.fields` gives X `auth_token` + `ct0`, Instagram `sessionid`, Facebook `c_user` + `xs`, TikTok `sessionid`; any other site gets a single `name=value; …` box. Under it: "Or: Open the x.com login page · load a cookies.txt file". The login window opens **only** from that link; Back returns to the form. The F12 Network steps, the extension wording and the auto-open are gone. New test: every site with boxes asks for its login marker, so a correctly filled form is never refused. Full `npm test` + build green. First publish attempt blocked pending the owner's go; on "publish ofc" shipped as v0.0.17 (commit `f945c49`, run 45058412118 green, 7 assets, feed 0.0.17).
 **Files:** src/shared/sites.ts, src/renderer/src/components/SignInDialog.tsx (rewritten), src/renderer/src/strings.ts, scripts/test-auth.ts, package.json, package-lock.json, changes.md

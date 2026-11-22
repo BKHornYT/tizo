@@ -75,6 +75,13 @@ export default function Queue({
    */
   useEffect(() => {
     const onPaste = (e: ClipboardEvent): void => {
+      // A paste into a text box (the sign-in dialog's auth_token / ct0 boxes,
+      // Settings fields) belongs to that box. Swallowing it here made those
+      // boxes impossible to fill: "No links found in what you pasted".
+      const target = e.target as HTMLElement | null
+      if (target && (target.closest('input, textarea, [contenteditable=""], [contenteditable="true"]') || target.isContentEditable)) {
+        return
+      }
       const text = e.clipboardData?.getData('text') ?? ''
       if (text) {
         e.preventDefault()
