@@ -34,8 +34,8 @@ any site; one-time notice instead of a terms re-prompt; build, then the owner sa
 - [x] Owner's v0.0.14 test found two bugs (2026-11-22): Google sign-in on X → "unexpected error"
       (FedCM; now disabled + cookies.txt import fallback), sensitive `/video/1` link → bare failure
       (now NO_MEDIA with the sign-in button). Built + tested, **shipped in v0.0.15** (2026-11-22)
-- [ ] Owner: test v0.0.15 — try "Continue with Google" again; if Google still refuses, use
-      "Import a cookies file" in the sign-in dialog
+- [x] v0.0.16 (2026-11-22): paste cookies from F12, no extension (owner's ask); CI green, feed 0.0.16
+- [ ] Owner: test v0.0.16 — "Continue with Google" again, or "Paste cookies instead" in the sign-in dialog
 - [ ] Later: write refreshed cookies back after each run (sites rotate them); today a stale session
       means "sign in again"
 
