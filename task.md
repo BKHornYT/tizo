@@ -11,10 +11,11 @@ Full phase breakdown in [docs/plan.md](docs/plan.md).
 - [x] Multi-video posts reach the picker (`engine/item.ts`, `--playlist-items`)
 - [x] "No video could be found in this tweet" → `NO_MEDIA` with a sensitive-post hint, no page scan
 - [x] `npm run test:items` (22) + full `npm test` green; real-engine e2e against a live 4-video post
-- [ ] Owner: try X links in a dev build (`npm run dev`) or the next release; ship in v0.0.14
+- [x] Shipped in v0.0.14 (2026-11-22)
+- [ ] Owner: try X links in the published v0.0.14
 - [x] Sensitive/NSFW posts and protected accounts → sign-in (below)
 
-### ✅ Sign in to sites — Phase 7 rung 1 (2026-11-22) — built and tested, not released
+### ✅ Sign in to sites — Phase 7 rung 1 (2026-11-22) — shipped in v0.0.14
 
 Owner's choices (2026-11-22): button on the failed row **and** Settings; one-click common sites +
 any site; one-time notice instead of a terms re-prompt; build, then the owner says go before v0.0.14.
@@ -25,10 +26,11 @@ any site; one-time notice instead of a terms re-prompt; build, then the owner sa
 - [x] Settings → Signed-in sites (list, sign in again, sign out, one-click + any site)
 - [x] Terms section + one-time notice; report scrubbing strips cookie paths/lines
 - [x] `npm run test:auth` (37) + full `npm test` + `electron-vite build` green; yt-dlp reads our cookie file
-- [ ] **Owner test (needs your login, a real window):** `npm run dev` → paste a sensitive X post →
-      "Sign in to x.com" → sign in → Done → the row retries and downloads. Also try Settings → YouTube
-      (Google may refuse embedded sign-in — expected risk)
-- [ ] Owner's go → bump to 0.0.14 and release (X fixes + sign-in)
+- [ ] **Owner test on the published v0.0.14** (owner chose to test the release, 2026-11-22): paste a
+      sensitive X post → "Sign in to x.com" → sign in → Done → the row retries and downloads. Also try
+      Settings → YouTube (Google may refuse embedded sign-in — expected risk)
+- [x] Released v0.0.14 on the owner's "just publish" (2026-11-22): CI windows + linux green, release
+      not draft, all 7 assets incl. `latest.yml`/`latest-linux.yml`, feed says 0.0.14
 - [ ] Later: write refreshed cookies back after each run (sites rotate them); today a stale session
       means "sign in again"
 
